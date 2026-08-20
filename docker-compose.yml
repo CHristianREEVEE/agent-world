@@ -1,0 +1,12 @@
+services:
+  agent-world:
+    build: .
+    container_name: agent-world
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - PORT=3000
+      - DATA_DIR=/app/data
+    restart: unless-stopped

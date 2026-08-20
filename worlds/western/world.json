@@ -1,0 +1,293 @@
+{
+  "id": "western",
+  "name": "Mythos Realm",
+  "desc": "A world of magic and myth where Greek and Norse legends intertwine. Mortals study the arcane arts, ascending through realms of power until they rival the gods themselves.",
+  "map": {
+    "width": 1000,
+    "height": 700,
+    "regions": [
+      { "id": "greek", "name": "Hellas", "labelPos": [190, 200] },
+      { "id": "norse", "name": "Midgard", "labelPos": [530, 190] },
+      { "id": "divine", "name": "Divine Realms", "labelPos": [855, 105] }
+    ],
+    "continents": [
+      {
+        "id": "greek",
+        "polygon": [[70, 150], [200, 120], [330, 135], [365, 300], [340, 470], [290, 600], [170, 610], [85, 500], [55, 300]],
+        "color": "#1c2a22"
+      },
+      {
+        "id": "norse",
+        "polygon": [[385, 150], [620, 125], [720, 270], [735, 430], [650, 560], [500, 575], [390, 490], [355, 280]],
+        "color": "#26251c"
+      },
+      {
+        "id": "divine",
+        "islands": true,
+        "polygon": [[755, 80], [970, 70], [985, 630], [820, 620], [745, 350]],
+        "color": "#1e2433"
+      }
+    ]
+  },
+  "spawn": "village",
+  "realms": [
+    { "name": "Mortal", "maxCultivation": 100, "maxLifespan": 80, "breakItem": null },
+    { "name": "Apprentice", "maxCultivation": 500, "maxLifespan": 120, "breakItem": "Apprentice Sigil" },
+    { "name": "Adept", "maxCultivation": 2000, "maxLifespan": 250, "breakItem": "Adept Crystal" },
+    { "name": "Magus", "maxCultivation": 8000, "maxLifespan": 500, "breakItem": "Magus Staff" },
+    { "name": "Archon", "maxCultivation": 30000, "maxLifespan": 1000, "breakItem": "Archon Crown" },
+    { "name": "Sage", "maxCultivation": 100000, "maxLifespan": 2000, "breakItem": "Sage Stone" },
+    { "name": "Demigod", "maxCultivation": 500000, "maxLifespan": 5000, "breakItem": "Demigod Essence" },
+    { "name": "Divine", "maxCultivation": 99999999, "maxLifespan": 99999, "breakItem": "Divine Nectar" }
+  ],
+  "paths": {
+    "elemental": {
+      "name": "Elemental",
+      "desc": "Master of fire, ice, and lightning. Raw power and devastating destruction.",
+      "combatMod": 1.25,
+      "defMod": 1.0,
+      "skills": [
+        { "name": "Fireball", "desc": "Hurl a sphere of roaring flame at the enemy", "spirit": 10, "type": "attack", "mult": 1.5 },
+        { "name": "Chain Lightning", "desc": "Lightning arcs between targets, devastating all", "spirit": 30, "type": "attack", "mult": 3.0 },
+        { "name": "Frost Armor", "desc": "Sheath yourself in solid ice, absorbing blows", "spirit": 20, "type": "defend", "defMult": 2.0 }
+      ]
+    },
+    "necromancy": {
+      "name": "Necromancy",
+      "desc": "Command the dead, curse the living. Death is merely a tool.",
+      "combatMod": 1.1,
+      "defMod": 1.1,
+      "skills": [
+        { "name": "Soul Drain", "desc": "Drain the life essence from your foe, healing yourself", "spirit": 15, "type": "attack", "mult": 2.0, "healPct": 0.2 },
+        { "name": "Summon Wraith", "desc": "Raise a spectral wraith to fight at your side", "spirit": 20, "type": "attack", "mult": 1.8 },
+        { "name": "Death Curse", "desc": "A withering curse that rots flesh and bone", "spirit": 35, "type": "attack", "mult": 2.8 }
+      ]
+    },
+    "divination": {
+      "name": "Divination",
+      "desc": "Read the stars, weave fate, foresee the future. Knowledge is the greatest power.",
+      "combatMod": 0.9,
+      "defMod": 1.3,
+      "skills": [
+        { "name": "Starfall", "desc": "Call down a rain of burning starlight upon your enemy", "spirit": 15, "type": "attack", "mult": 1.5 },
+        { "name": "Fate Shield", "desc": "Weave the threads of fate into an impenetrable barrier", "spirit": 15, "type": "defend", "defMult": 2.5 },
+        { "name": "Prophecy's Edge", "desc": "Foresee the enemy's every move and strike their weakness", "spirit": 35, "type": "attack", "mult": 2.8 }
+      ]
+    },
+    "alchemy": {
+      "name": "Alchemy",
+      "desc": "Brew potions, carve runes, transmute matter. Versatility incarnate.",
+      "combatMod": 1.0,
+      "defMod": 1.2,
+      "skills": [
+        { "name": "Healing Draught", "desc": "Brew a quick-acting potion to mend your wounds", "spirit": 15, "type": "heal", "healPct": 0.35 },
+        { "name": "Rune Burst", "desc": "Detonate a cluster of carved runes in a burst of energy", "spirit": 20, "type": "attack", "mult": 2.0 },
+        { "name": "Philosopher's Flame", "desc": "The legendary fire that destroys and restores in equal measure", "spirit": 40, "type": "attack", "mult": 2.5, "healPct": 0.2 }
+      ]
+    }
+  },
+  "areas": [
+    { "id": "village", "name": "Village", "continent": "greek", "type": "town", "x": 160, "y": 380, "minRealm": 0,
+      "adjacent": ["forest", "market", "river", "oracle"],
+      "desc": "A quiet farming village on the edge of the Greek wilds. Travelers and aspiring mages often rest here before venturing into the unknown." },
+    { "id": "forest", "name": "Enchanted Forest", "continent": "greek", "type": "forest", "x": 250, "y": 300, "minRealm": 0,
+      "adjacent": ["village", "mine", "labyrinth"],
+      "desc": "Ancient trees hum with arcane energy. Glowing plants and magical creatures dwell within the misty depths." },
+    { "id": "mine", "name": "Crystal Mine", "continent": "greek", "type": "mine", "x": 300, "y": 180, "minRealm": 0,
+      "adjacent": ["forest", "labyrinth"],
+      "desc": "A network of tunnels glittering with raw magical crystals, prized by alchemists and enchanters alike." },
+    { "id": "river", "name": "River Styx", "continent": "greek", "type": "river", "x": 120, "y": 250, "minRealm": 0,
+      "adjacent": ["village", "market"],
+      "desc": "The dark waters of the Styx flow from the underworld itself. Legends say it grants invulnerability to those who bathe in it." },
+    { "id": "market", "name": "Bazaar", "continent": "greek", "type": "market", "x": 210, "y": 480, "minRealm": 0,
+      "adjacent": ["village", "river", "shore"],
+      "desc": "A bustling marketplace where merchants from both Greek and Norse lands trade potions, materials, and artifacts." },
+    { "id": "labyrinth", "name": "Labyrinth Entrance", "continent": "greek", "type": "dungeon_entrance", "x": 330, "y": 310, "minRealm": 1,
+      "adjacent": ["forest", "mine", "oracle"], "dungeonId": "labyrinth",
+      "desc": "The entrance to the legendary labyrinth of King Minos. A faint roar echoes from deep within the twisting corridors." },
+    { "id": "oracle", "name": "Oracle's Cave", "continent": "greek", "type": "event", "x": 265, "y": 560, "minRealm": 0,
+      "adjacent": ["village", "labyrinth", "olympus"],
+      "desc": "A sacred cave where the Oracle of Delphi once spoke prophecies. The air still shimmers with divine foresight." },
+    { "id": "academy", "name": "Arcane Academy", "continent": "greek", "type": "sect", "x": 180, "y": 220, "minRealm": 0,
+      "adjacent": ["olympus", "temple"],
+      "desc": "A grand halls of learning where masters of the arcane arts teach aspiring mages the secrets of magic." },
+    { "id": "olympus", "name": "Mount Olympus", "continent": "greek", "type": "mountain", "x": 345, "y": 420, "minRealm": 1,
+      "adjacent": ["oracle", "academy", "temple", "mistwood"],
+      "desc": "The sacred mountain of the gods. Its cloud-wreathed peak pulses with divine energy that empowers all who meditate upon it." },
+    { "id": "temple", "name": "Temple of Athena", "continent": "greek", "type": "event", "x": 260, "y": 170, "minRealm": 2,
+      "adjacent": ["olympus", "academy"],
+      "desc": "A marble temple dedicated to the goddess of wisdom. Ancient wards still protect the knowledge hidden within its walls." },
+    { "id": "shore", "name": "Northern Shore", "continent": "norse", "type": "beach", "x": 580, "y": 560, "minRealm": 1,
+      "adjacent": ["market", "mistwood"],
+      "desc": "A rugged shoreline battered by cold northern waves. Strange treasures wash ashore with every tide." },
+    { "id": "mistwood", "name": "Mistwood", "continent": "norse", "type": "forest", "x": 460, "y": 250, "minRealm": 1,
+      "adjacent": ["shore", "olympus", "underworld_gate", "frost_peak"],
+      "desc": "A perpetual mist clings to these ancient woods. The trees here whisper secrets of the old Norse gods to those who listen." },
+    { "id": "underworld_gate", "name": "Underworld Gate", "continent": "norse", "type": "dungeon_entrance", "x": 560, "y": 480, "minRealm": 3,
+      "adjacent": ["mistwood", "rune_circle"], "dungeonId": "underworld",
+      "desc": "A crumbling archway that serves as a passage into the realm of Hades. The air here smells of ash and sorrow." },
+    { "id": "rune_circle", "name": "Rune Circle", "continent": "norse", "type": "event", "x": 665, "y": 400, "minRealm": 2,
+      "adjacent": ["underworld_gate", "frost_peak"],
+      "desc": "A circle of ancient standing stones carved with Norse runes. They glow faintly when magical energy is near." },
+    { "id": "frost_peak", "name": "Frost Peak", "continent": "norse", "type": "mountain", "x": 620, "y": 200, "minRealm": 2,
+      "adjacent": ["mistwood", "rune_circle", "world_tree"],
+      "desc": "A towering peak of eternal ice. The howling winds carry echoes of the frost giants who once ruled these lands." },
+    { "id": "world_tree", "name": "World Tree", "continent": "divine", "type": "event", "x": 810, "y": 250, "minRealm": 4,
+      "adjacent": ["frost_peak", "valhalla"],
+      "desc": "Yggdrasil, the World Tree that connects all nine realms. Its roots drink from the well of ultimate wisdom." },
+    { "id": "valhalla", "name": "Valhalla", "continent": "divine", "type": "event", "x": 880, "y": 400, "minRealm": 5,
+      "adjacent": ["world_tree", "ragnarok_gate"],
+      "desc": "The golden hall of the fallen warriors. Einherjar feast and fight here in eternal preparation for the end of days." },
+    { "id": "ragnarok_gate", "name": "Ragnarok's Edge", "continent": "divine", "type": "dungeon_entrance", "x": 850, "y": 550, "minRealm": 6,
+      "adjacent": ["valhalla"], "dungeonId": "ragnarok",
+      "desc": "The very edge of the world, where the sky burns crimson and the prophesied end of all things draws near." }
+  ],
+  "dungeons": [
+    {
+      "id": "labyrinth", "name": "Labyrinth of Minos", "areaId": "labyrinth", "floors": 3, "minRealm": 1,
+      "enemies": [
+        { "name": "Minotaur Calf", "hp": 30, "atk": 8 },
+        { "name": "Stone Guardian", "hp": 45, "atk": 10 },
+        { "name": "Cursed Skeleton", "hp": 38, "atk": 12 }
+      ],
+      "boss": { "name": "Minotaur Lord", "hp": 130, "atk": 18, "drops": ["Adept Crystal"] },
+      "rewards": { "cultivation": 100, "spiritStones": 60, "items": ["Mana Potion"] },
+      "scenes": [
+        "The labyrinth's stone walls twist and turn, swallowing all light. The scent of beast is strong.",
+        "Deeper in, hoofprints mark the dusty floor. A low growl echoes from somewhere close.",
+        "The Minotaur Lord stands in the center of his domain, axe raised and eyes blazing with fury."
+      ]
+    },
+    {
+      "id": "underworld", "name": "The Underworld", "areaId": "underworld_gate", "floors": 5, "minRealm": 3,
+      "enemies": [
+        { "name": "Shade", "hp": 90, "atk": 20 },
+        { "name": "Hell Hound", "hp": 70, "atk": 24 },
+        { "name": "Lost Soul", "hp": 110, "atk": 22 }
+      ],
+      "boss": { "name": "Hades' Warden", "hp": 280, "atk": 32, "drops": ["Archon Crown"] },
+      "rewards": { "cultivation": 800, "spiritStones": 280, "items": ["Mana Potion"] },
+      "scenes": [
+        "You descend into the Underworld. The air grows cold and heavy with sorrow.",
+        "The river Styx stretches before you, its dark waters whispering of the dead.",
+        "Shades drift through the ashen landscape, their hollow eyes following your every step.",
+        "A vast hall of black stone rises from the gloom. Torches burn with ghostly blue fire.",
+        "Hades' Warden blocks your path, his twin blades humming with death energy."
+      ]
+    },
+    {
+      "id": "ragnarok", "name": "Ragnarok's Edge", "areaId": "ragnarok_gate", "floors": 7, "minRealm": 6,
+      "enemies": [
+        { "name": "Fire Giant", "hp": 200, "atk": 40 },
+        { "name": "Frost Wraith", "hp": 180, "atk": 44 },
+        { "name": "Chaos Serpent", "hp": 240, "atk": 42 }
+      ],
+      "boss": { "name": "Surtr the Destroyer", "hp": 820, "atk": 70, "drops": ["Divine Nectar"] },
+      "rewards": { "cultivation": 6000, "spiritStones": 700, "items": ["Healing Potion"] },
+      "scenes": [
+        "The sky burns crimson at the edge of the world. This is where Ragnarok begins.",
+        "Flaming meteors rain down as the earth splits apart beneath your feet.",
+        "A battlefield stretches to the horizon, where gods and giants clash in the distance.",
+        "The frost of Niflheim collides with the fire of Muspelheim, creating churning storms.",
+        "The bodies of fallen warriors litter the ground, their weapons still smoking.",
+        "A bridge of burning ice spans a chasm of pure chaos energy.",
+        "Surtr the Destroyer stands at the world's end, his flaming sword taller than a mountain."
+      ]
+    }
+  ],
+  "items": {
+    "Mana Potion": { "type": "pill", "desc": "Restores 40 spirit", "spirit": 40, "price": 15, "sell": 5 },
+    "Healing Potion": { "type": "pill", "desc": "Restores 50 HP", "hp": 50, "price": 12, "sell": 4 },
+    "Minor Healing Potion": { "type": "pill", "desc": "Restores 25 HP", "hp": 25, "price": 8, "sell": 2 },
+    "Apprentice Sigil": { "type": "breakthrough", "desc": "Sigil required to advance to Apprentice", "price": 120, "sell": 40 },
+    "Adept Crystal": { "type": "breakthrough", "desc": "Crystal required to advance to Adept", "price": 0, "sell": 120 },
+    "Magus Staff": { "type": "breakthrough", "desc": "Staff required to advance to Magus", "price": 0, "sell": 300 },
+    "Archon Crown": { "type": "breakthrough", "desc": "Crown required to advance to Archon", "price": 0, "sell": 600 },
+    "Sage Stone": { "type": "breakthrough", "desc": "Stone required to advance to Sage", "price": 0, "sell": 1000 },
+    "Demigod Essence": { "type": "breakthrough", "desc": "Essence required to advance to Demigod", "price": 0, "sell": 1800 },
+    "Divine Nectar": { "type": "breakthrough", "desc": "Nectar required to ascend to Divine", "price": 0, "sell": 3000 },
+    "Herb": { "type": "material", "desc": "A common magical herb used in basic potions", "price": 0, "sell": 5 },
+    "Mandrake Root": { "type": "material", "desc": "A potent root that screams when uprooted", "price": 0, "sell": 30 },
+    "Crystal Shard": { "type": "material", "desc": "Raw magical crystal, valued by enchanters", "price": 0, "sell": 8 },
+    "Pure Crystal": { "type": "material", "desc": "A flawless crystal of concentrated magical energy", "price": 0, "sell": 25 },
+    "River Fish": { "type": "material", "desc": "A fish caught from the River Styx, surprisingly edible", "price": 0, "sell": 3 },
+    "Pearl": { "type": "material", "desc": "A luminous pearl from the northern shores", "price": 0, "sell": 15 },
+    "Sea Shell": { "type": "material", "desc": "A shell imbued with faint sea magic", "price": 0, "sell": 4 },
+    "Spider Silk": { "type": "material", "desc": "Silk from a giant cave spider, incredibly strong", "price": 0, "sell": 6 },
+    "Monster Core": { "type": "material", "desc": "A core crystallized from a fallen monster's essence", "price": 0, "sell": 20 },
+    "Fire Essence": { "type": "material", "desc": "A crystallized fragment of pure flame", "price": 0, "sell": 28 },
+    "Beast Relic": { "type": "material", "desc": "A rare relic from an ancient divine beast", "price": 0, "sell": 45 },
+    "Mythic Scroll": { "type": "treasure", "desc": "An ancient scroll containing forgotten magical knowledge", "price": 0, "sell": 100 }
+  },
+  "shop": ["Mana Potion", "Healing Potion", "Minor Healing Potion", "Apprentice Sigil"],
+  "gather": {
+    "collect": [
+      { "item": "Herb", "weight": 70 },
+      { "item": "spiritStones", "min": 2, "max": 5, "weight": 20 },
+      { "item": "Mandrake Root", "weight": 10 }
+    ],
+    "mine": [
+      { "item": "Crystal Shard", "weight": 70 },
+      { "item": "spiritStones", "min": 3, "max": 6, "weight": 20 },
+      { "item": "Pure Crystal", "weight": 10 }
+    ],
+    "fish": [
+      { "item": "River Fish", "weight": 60 },
+      { "item": "Pearl", "weight": 25 },
+      { "item": "spiritStones", "min": 2, "max": 4, "weight": 15 }
+    ],
+    "beach": [
+      { "item": "Sea Shell", "weight": 55 },
+      { "item": "Pearl", "weight": 25 },
+      { "item": "spiritStones", "min": 3, "max": 6, "weight": 20 }
+    ]
+  },
+  "fortuneEvents": {
+    "oracle": [
+      { "type": "cultivation", "min": 15, "max": 40, "text": "You meditate in the Oracle's cave, gaining insight from the lingering divine energy.", "weight": 25 },
+      { "type": "spiritStones", "min": 5, "max": 15, "text": "You find a pouch of spirit stones hidden beneath a loose stone in the cave.", "weight": 20 },
+      { "type": "hp", "min": -15, "max": -5, "text": "A sudden cave-in catches you off guard, leaving you bruised and bleeding.", "weight": 15 },
+      { "type": "comprehension", "text": "The Oracle's whispers echo in your mind, granting you deeper understanding of magic.", "weight": 10 },
+      { "type": "item", "item": "Herb", "text": "You spot a rare herb growing in the cave's damp corners and carefully harvest it.", "weight": 15 },
+      { "type": "item", "item": "Spider Silk", "text": "A giant spider's web hangs in a side tunnel. You carefully collect strands of silk.", "weight": 15 }
+    ],
+    "temple": [
+      { "type": "cultivation", "min": 30, "max": 70, "text": "Praying at Athena's temple fills you with wisdom. Your cultivation surges forward.", "weight": 30 },
+      { "type": "comprehension", "text": "Athena's blessing sharpens your mind. Your comprehension has increased.", "weight": 20 },
+      { "type": "spiritStones", "min": 10, "max": 25, "text": "You find offerings of spirit stones left by previous pilgrims.", "weight": 25 },
+      { "type": "item", "item": "Mythic Scroll", "text": "A hidden compartment behind the altar reveals an ancient mythic scroll.", "weight": 10 },
+      { "type": "hp", "min": -20, "max": -8, "text": "You trigger an old ward protecting the inner sanctum, taking a blast of magical energy.", "weight": 15 }
+    ],
+    "rune_circle": [
+      { "type": "item", "item": "Crystal Shard", "text": "Crystal shards litter the ground around the ancient runes. You gather a handful.", "weight": 25 },
+      { "type": "cultivation", "min": 25, "max": 60, "text": "The runic energy seeps into your body, advancing your cultivation significantly.", "weight": 25 },
+      { "type": "item", "item": "Fire Essence", "text": "A fire essence crystal pulses at the circle's center, drawn forth by the runes.", "weight": 20 },
+      { "type": "spiritStones", "min": 10, "max": 20, "text": "Loose spirit stones are scattered among the standing stones.", "weight": 15 },
+      { "type": "body", "text": "The raw runic power surges through you, tempering your body to greater resilience.", "weight": 15 }
+    ],
+    "world_tree": [
+      { "type": "cultivation", "min": 60, "max": 150, "text": "Sitting beneath the World Tree, you absorb its ancient power. Your cultivation soars.", "weight": 35 },
+      { "type": "comprehension", "text": "The roots of Yggdrasil whisper cosmic truths. Your comprehension has increased.", "weight": 20 },
+      { "type": "spiritStones", "min": 20, "max": 50, "text": "Spirit stones cling to the World Tree's massive roots. You carefully pry them free.", "weight": 20 },
+      { "type": "item", "item": "Beast Relic", "text": "Deep among the roots, you find the fossilized relic of a creature from the dawn of time.", "weight": 10 },
+      { "type": "none", "text": "The World Tree is silent today. Its branches sway in an otherworldly wind, but nothing comes.", "weight": 15 }
+    ],
+    "valhalla": [
+      { "type": "cultivation", "min": 80, "max": 200, "text": "The warriors of Valhalla spar with you, sharpening your skills. Your cultivation surges dramatically.", "weight": 25 },
+      { "type": "item", "item": "Mythic Scroll", "text": "A fallen hero left behind a mythic scroll tucked within their shield.", "weight": 20 },
+      { "type": "spiritStones", "min": 25, "max": 60, "text": "Spoils of war lie scattered across the golden hall. You claim a share of spirit stones.", "weight": 20 },
+      { "type": "item", "item": "Monster Core", "text": "Among the feast tables, you find a monster core taken from a slain frost beast.", "weight": 15 },
+      { "type": "hp", "min": -35, "max": -15, "text": "A sparring match with an Einherjar goes too far. You are carried from the hall, battered.", "weight": 20 }
+    ]
+  },
+  "ask": {
+    "sect": { "cost": 10, "cultivationBase": 10, "comprehensionChance": 0.1, "text": "Study under the masters of the Arcane Academy" },
+    "mountain": { "cost": 6, "cultivationBase": 7, "comprehensionChance": 0.06, "text": "Meditate atop the sacred peak" }
+  },
+  "time": {
+    "tickMs": 3000,
+    "dayPerTick": 0.05,
+    "daysPerYear": 360,
+    "startAge": 16
+  }
+}
