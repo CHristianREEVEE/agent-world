@@ -1,0 +1,2533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-BING WORLD · 修仙世界（人类玩家模式）</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Noto Serif SC', 'Songti SC', serif;
+  background: #0a0a12;
+  color: #d4c9a8;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 30%, rgba(40,30,80,0.6) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 70%, rgba(20,50,70,0.5) 0%, transparent 60%),
+    radial-gradient(circle at 50% 50%, rgba(10,10,18,1) 0%, #0a0a12 100%);
+  z-index: -1;
+}
+.container {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 270px 1fr 290px;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+  min-height: 100vh;
+}
+.header {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 10px 0 4px;
+  border-bottom: 1px solid rgba(180,150,100,0.2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+.header h1 {
+  font-size: 1.6rem;
+  color: #c9a96e;
+  letter-spacing: 0.5em;
+  text-shadow: 0 0 20px rgba(201,169,110,0.4);
+}
+.header .subtitle {
+  font-size: 0.75rem;
+  color: #7a6f5a;
+  margin-top: 2px;
+}
+.header-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.header-btn {
+  background: rgba(30,25,50,0.7);
+  border: 1px solid rgba(180,150,100,0.2);
+  color: #9a8a6a;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.header-btn:hover { border-color: rgba(201,169,110,0.5); color: #c9a96e; }
+.header-btn.active { background: rgba(201,169,110,0.15); border-color: rgba(201,169,110,0.5); color: #c9a96e; }
+.panel {
+  background: rgba(20,18,30,0.75);
+  border: 1px solid rgba(180,150,100,0.15);
+  border-radius: 8px;
+  padding: 12px;
+  backdrop-filter: blur(4px);
+}
+.panel-title {
+  font-size: 0.7rem;
+  color: #8a7a5a;
+  letter-spacing: 0.2em;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(180,150,100,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.char-panel { grid-row: 2; overflow-y: auto; max-height: calc(100vh - 200px); }
+.char-name { font-size: 1.2rem; color: #e8d9b0; margin-bottom: 2px; }
+.char-realm { font-size: 0.9rem; color: #c9a96e; margin-bottom: 2px; }
+.char-path { font-size: 0.7rem; color: #7a9aaa; margin-bottom: 8px; }
+.char-age { font-size: 0.7rem; color: #7a6f5a; margin-bottom: 10px; }
+.stat-row { margin-bottom: 8px; }
+.stat-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: #9a8a6a;
+  margin-bottom: 2px;
+}
+.stat-bar {
+  height: 5px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.stat-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+.fill-spirit { background: linear-gradient(90deg, #4a7ab5, #6aaae0); }
+.fill-stamina { background: linear-gradient(90deg, #5a9a5a, #7ac87a); }
+.fill-hp { background: linear-gradient(90deg, #c87a5a, #e88080); }
+.cultivation-main {
+  margin: 10px 0;
+  padding: 8px;
+  background: rgba(30,25,50,0.5);
+  border-radius: 6px;
+  border: 1px solid rgba(201,169,110,0.2);
+}
+.cultivation-title {
+  font-size: 0.65rem;
+  color: #8a7a5a;
+  letter-spacing: 0.15em;
+  margin-bottom: 5px;
+  display: flex;
+  justify-content: space-between;
+}
+.cultivation-bar {
+  height: 10px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+}
+.cultivation-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #c9a96e, #e8d9b0, #c9a96e);
+  background-size: 200% 100%;
+  animation: shimmer 2s ease infinite;
+  border-radius: 5px;
+  transition: width 0.5s ease;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.cultivation-percent {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #c9a96e;
+  margin-top: 3px;
+}
+.talent-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(180,150,100,0.1);
+}
+.talent-item { font-size: 0.65rem; color: #8a7a5a; }
+.talent-item span { color: #c9a96e; }
+.inventory { margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(180,150,100,0.1); }
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-top: 5px;
+}
+.inv-slot {
+  aspect-ratio: 1;
+  background: rgba(30,25,50,0.5);
+  border: 1px solid rgba(180,150,100,0.1);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  color: #8a7a5a;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+.inv-slot:hover { border-color: rgba(201,169,110,0.5); background: rgba(40,35,60,0.7); }
+.inv-slot .inv-icon { font-size: 1.1rem; }
+.inv-slot .inv-count { font-size: 0.55rem; color: #c9a96e; }
+.inv-slot.empty { opacity: 0.3; }
+.scene-panel { grid-row: 2; display: flex; flex-direction: column; }
+.current-area {
+  text-align: center;
+  padding: 10px;
+  background: rgba(30,25,50,0.5);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(180,150,100,0.1);
+}
+.area-icon { font-size: 2rem; margin-bottom: 2px; }
+.area-name { font-size: 0.95rem; color: #e8d9b0; }
+.area-desc { font-size: 0.65rem; color: #6a5f4a; margin-top: 2px; }
+.action-display {
+  text-align: center;
+  padding: 10px;
+  background: rgba(40,30,60,0.5);
+  border-radius: 6px;
+  border: 1px solid rgba(180,150,100,0.1);
+  margin-bottom: 8px;
+}
+.action-label { font-size: 0.6rem; color: #6a5f4a; letter-spacing: 0.15em; }
+.action-text { font-size: 0.9rem; color: #c9a96e; margin-top: 2px; }
+.action-progress {
+  margin-top: 5px;
+  height: 3px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.action-progress-fill {
+  height: 100%;
+  background: rgba(201,169,110,0.6);
+  border-radius: 2px;
+  transition: width 0.3s linear;
+}
+#map {
+  flex: 1;
+  min-height: 320px;
+  border-radius: 6px;
+  border: 1px solid rgba(180,150,100,0.2);
+}
+.leaflet-container { background: #0d0d1a !important; }
+.leaflet-popup-content-wrapper {
+  background: rgba(25,22,38,0.95) !important;
+  color: #d4c9a8 !important;
+  border: 1px solid rgba(180,150,100,0.3);
+  border-radius: 8px;
+}
+.leaflet-popup-tip { background: rgba(25,22,38,0.95) !important; }
+.map-marker {
+  background: rgba(30,25,50,0.9);
+  border: 2px solid rgba(180,150,100,0.3);
+  border-radius: 50%;
+  width: 40px !important;
+  height: 40px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.map-marker.current {
+  border-color: #c9a96e;
+  box-shadow: 0 0 15px rgba(201,169,110,0.6);
+}
+.map-marker.locked { opacity: 0.4; cursor: not-allowed; }
+.map-marker.dungeon {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 10px rgba(139,92,246,0.4);
+  background: rgba(40,25,60,0.9);
+}
+.map-marker.dungeon.current {
+  border-color: #a78bfa;
+  box-shadow: 0 0 18px rgba(167,139,250,0.7);
+}
+.marker-danger {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #c87a7a;
+  color: white;
+  font-size: 0.55rem;
+  padding: 1px 4px;
+  border-radius: 8px;
+  font-weight: bold;
+}
+.marker-dungeon-badge {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #6b3fa0;
+  color: #d4b8ff;
+  font-size: 0.5rem;
+  padding: 1px 5px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.region-label {
+  background: none !important;
+  border: none !important;
+  color: rgba(180,160,120,0.5);
+  font-size: 0.85rem;
+  letter-spacing: 0.3em;
+  text-shadow: 0 0 10px rgba(180,160,120,0.3);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.jiutian-label { color: rgba(160,130,200,0.5) !important; }
+.haiyu-label { color: rgba(80,160,200,0.5) !important; }
+.youming-label { color: rgba(160,80,80,0.5) !important; }
+.log-panel { grid-row: 2; display: flex; flex-direction: column; }
+.log-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180,150,100,0.2) transparent;
+}
+.log-entry {
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(180,150,100,0.05);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  animation: fadeIn 0.3s ease;
+}
+.log-time { color: #4a4535; font-size: 0.6rem; }
+.log-text { color: #a8986a; }
+.log-text.event-good { color: #7ac87a; }
+.log-text.event-bad { color: #c87a7a; }
+.log-text.event-rare { color: #c9a96e; }
+.log-text.event-breakthrough { color: #e8d9b0; text-shadow: 0 0 8px rgba(232,217,176,0.5); }
+.log-text.event-player { color: #8ab8e8; }
+.log-text.event-dungeon { color: #b48aff; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========== 仪表盘 ========== */
+.dashboard {
+  grid-column: 1 / -1;
+  background: rgba(20,18,30,0.85);
+  border: 1px solid rgba(180,150,100,0.15);
+  border-radius: 8px;
+  padding: 10px 14px;
+  backdrop-filter: blur(6px);
+}
+.dashboard-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dashboard-row + .dashboard-row { margin-top: 8px; }
+.dashboard-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: #9a8a6a;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #7ac87a;
+  animation: pulse-dot 2s ease infinite;
+}
+.status-dot.busy { background: #c9a96e; }
+.status-dot.combat { background: #e87a7a; }
+.status-dot.dungeon { background: #b48aff; }
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.action-btn {
+  background: rgba(30,25,50,0.8);
+  border: 1px solid rgba(180,150,100,0.25);
+  color: #c9a96e;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 80px;
+  position: relative;
+  overflow: hidden;
+}
+.action-btn .btn-icon { font-size: 1.2rem; }
+.action-btn .btn-label { font-size: 0.7rem; }
+.action-btn .btn-hint {
+  font-size: 0.55rem;
+  color: #7a6f5a;
+  white-space: nowrap;
+}
+.action-btn:hover:not(:disabled) {
+  background: rgba(201,169,110,0.15);
+  border-color: rgba(201,169,110,0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(201,169,110,0.15);
+}
+.action-btn:active:not(:disabled) { transform: translateY(0); }
+.action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+.action-btn.btn-cultivate { border-color: rgba(201,169,110,0.3); }
+.action-btn.btn-cultivate:hover:not(:disabled) { box-shadow: 0 2px 8px rgba(201,169,110,0.2); }
+.action-btn.btn-explore { border-color: rgba(138,184,232,0.3); color: #8ab8e8; }
+.action-btn.btn-explore:hover:not(:disabled) { box-shadow: 0 2px 8px rgba(138,184,232,0.2); }
+.action-btn.btn-gather { border-color: rgba(122,200,122,0.3); color: #7ac87a; }
+.action-btn.btn-gather:hover:not(:disabled) { box-shadow: 0 2px 8px rgba(122,200,122,0.2); }
+.action-btn.btn-dungeon { border-color: rgba(139,92,246,0.4); color: #b48aff; }
+.action-btn.btn-dungeon:hover:not(:disabled) { box-shadow: 0 2px 8px rgba(139,92,246,0.25); }
+.action-btn.btn-rest { border-color: rgba(150,150,180,0.3); color: #aaa8c8; }
+.action-btn.btn-dungeon-action { border-color: rgba(200,100,100,0.4); color: #e87a7a; }
+.action-btn.btn-dungeon-action:hover:not(:disabled) { box-shadow: 0 2px 8px rgba(200,100,100,0.2); }
+.dashboard-divider {
+  width: 1px;
+  height: 32px;
+  background: rgba(180,150,100,0.15);
+}
+.speed-control {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-left: auto;
+}
+.speed-btn {
+  background: rgba(30,25,50,0.7);
+  border: 1px solid rgba(180,150,100,0.2);
+  color: #9a8a6a;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.speed-btn:hover { border-color: rgba(201,169,110,0.5); color: #c9a96e; }
+.speed-btn.active { background: rgba(201,169,110,0.15); border-color: rgba(201,169,110,0.5); color: #c9a96e; }
+.game-time { font-size: 0.7rem; color: #6a5f4a; margin-right: 8px; }
+.auto-play-banner {
+  display: none;
+  background: rgba(139,92,246,0.15);
+  border: 1px solid rgba(139,92,246,0.4);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.7rem;
+  color: #b48aff;
+  margin-bottom: 8px;
+  align-items: center;
+  gap: 8px;
+}
+.auto-play-banner.active { display: flex; }
+.auto-play-banner .pulse {
+  width: 8px; height: 8px; border-radius: 50%; background: #b48aff;
+  animation: pulse-dot 1s ease infinite;
+}
+
+/* ========== 弹窗（仅用于事件/战斗） ========== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5,5,10,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s;
+}
+.modal-overlay.hidden { display: none; }
+.modal {
+  background: rgba(25,22,38,0.98);
+  border: 1px solid rgba(180,150,100,0.3);
+  border-radius: 10px;
+  padding: 20px;
+  max-width: 460px;
+  width: 90%;
+  text-align: center;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.modal h3 {
+  color: #c9a96e;
+  font-size: 1.05rem;
+  margin-bottom: 10px;
+  letter-spacing: 0.15em;
+}
+.modal p {
+  color: #a8986a;
+  font-size: 0.82rem;
+  margin-bottom: 14px;
+  line-height: 1.6;
+}
+.modal-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.choice-btn {
+  background: rgba(30,25,50,0.7);
+  border: 1px solid rgba(180,150,100,0.2);
+  color: #c9a96e;
+  padding: 9px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  text-align: left;
+}
+.choice-btn:hover {
+  background: rgba(201,169,110,0.15);
+  border-color: rgba(201,169,110,0.5);
+}
+.choice-btn .choice-hint {
+  font-size: 0.65rem;
+  color: #7a6f5a;
+  margin-top: 2px;
+}
+.combat-display {
+  background: rgba(60,20,30,0.3);
+  border: 1px solid rgba(200,100,100,0.3);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 10px;
+}
+.combat-title {
+  color: #e87a7a;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+.combat-stats {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 10px;
+}
+.combat-entity { text-align: center; }
+.combat-entity .entity-icon { font-size: 1.8rem; }
+.combat-entity .entity-name { font-size: 0.75rem; color: #a8986a; margin-top: 3px; }
+.combat-hp {
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+.combat-hp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #c87a7a, #e8a0a0);
+  transition: width 0.3s;
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5,5,10,0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.overlay.hidden { display: none; }
+.create-card {
+  background: rgba(20,18,30,0.95);
+  border: 1px solid rgba(180,150,100,0.2);
+  border-radius: 12px;
+  padding: 26px;
+  max-width: 380px;
+  width: 90%;
+  text-align: center;
+}
+.create-card h2 { color: #c9a96e; letter-spacing: 0.3em; margin-bottom: 14px; }
+.create-card input {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(180,150,100,0.2);
+  border-radius: 4px;
+  padding: 9px;
+  color: #e8d9b0;
+  font-size: 1rem;
+  font-family: inherit;
+  margin-bottom: 10px;
+  outline: none;
+  text-align: center;
+}
+.create-card input:focus { border-color: rgba(201,169,110,0.5); }
+.talent-preview {
+  background: rgba(30,25,50,0.5);
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 10px;
+  font-size: 0.78rem;
+  color: #8a7a5a;
+  line-height: 1.7;
+}
+.path-select {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  justify-content: center;
+}
+.path-btn {
+  padding: 7px 12px;
+  background: rgba(30,25,50,0.7);
+  border: 1px solid rgba(180,150,100,0.2);
+  border-radius: 4px;
+  color: #9a8a6a;
+  font-size: 0.78rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.path-btn.selected {
+  background: rgba(201,169,110,0.2);
+  border-color: rgba(201,169,110,0.6);
+  color: #c9a96e;
+}
+.create-btn {
+  background: rgba(201,169,110,0.15);
+  border: 1px solid rgba(201,169,110,0.4);
+  color: #c9a96e;
+  padding: 9px 26px;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.2em;
+  transition: all 0.2s;
+}
+.create-btn:hover { background: rgba(201,169,110,0.25); }
+
+/* ========== 副本面板 ========== */
+.dungeon-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5,5,10,0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1500;
+  animation: fadeIn 0.3s;
+}
+.dungeon-overlay.hidden { display: none; }
+.dungeon-panel {
+  background: rgba(20,15,30,0.98);
+  border: 1px solid rgba(139,92,246,0.3);
+  border-radius: 12px;
+  padding: 22px;
+  max-width: 540px;
+  width: 92%;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.dungeon-header {
+  text-align: center;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(139,92,246,0.2);
+}
+.dungeon-title {
+  font-size: 1.25rem;
+  color: #b48aff;
+  letter-spacing: 0.2em;
+  text-shadow: 0 0 15px rgba(180,138,255,0.3);
+}
+.dungeon-floor {
+  font-size: 0.75rem;
+  color: #8a7aaa;
+  margin-top: 4px;
+}
+.dungeon-scene {
+  background: rgba(40,25,60,0.4);
+  border: 1px solid rgba(139,92,246,0.2);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+.dungeon-scene-icon { font-size: 2.8rem; margin-bottom: 6px; }
+.dungeon-scene-desc {
+  font-size: 0.82rem;
+  color: #b8a8d8;
+  line-height: 1.6;
+}
+.dungeon-progress {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.dungeon-floor-dot {
+  width: 22px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.1);
+  transition: all 0.3s;
+}
+.dungeon-floor-dot.cleared { background: #7ac87a; }
+.dungeon-floor-dot.current { background: #b48aff; box-shadow: 0 0 8px rgba(180,138,255,0.6); }
+.skill-row {
+  display: flex;
+  gap: 5px;
+  margin-top: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.skill-btn {
+  background: rgba(60,40,80,0.6);
+  border: 1px solid rgba(139,92,246,0.3);
+  color: #c8b0ff;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.skill-btn:hover:not(:disabled) { border-color: rgba(180,138,255,0.6); background: rgba(80,50,100,0.7); }
+.skill-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* ========== Agent 控制台 ========== */
+.agent-console {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  width: 320px;
+  background: rgba(15,12,25,0.95);
+  border: 1px solid rgba(139,92,246,0.3);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 0.7rem;
+  color: #9a8aaa;
+  z-index: 500;
+  backdrop-filter: blur(8px);
+  display: none;
+}
+.agent-console.visible { display: block; }
+.agent-console-title {
+  font-size: 0.65rem;
+  color: #b48aff;
+  letter-spacing: 0.2em;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+.agent-console-log {
+  max-height: 120px;
+  overflow-y: auto;
+  font-size: 0.65rem;
+  line-height: 1.4;
+  scrollbar-width: thin;
+}
+.agent-console-log div { padding: 2px 0; border-bottom: 1px solid rgba(139,92,246,0.05); }
+.agent-console-log div.agent-action { color: #b48aff; }
+.agent-console-log div.agent-result { color: #7ac87a; }
+.agent-console-log div.agent-error { color: #e87a7a; }
+.agent-toggle {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  z-index: 501;
+  background: rgba(30,25,50,0.9);
+  border: 1px solid rgba(139,92,246,0.3);
+  color: #b48aff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+.agent-toggle:hover { border-color: rgba(180,138,255,0.6); }
+
+@media (max-width: 900px) {
+  .container {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto auto;
+  }
+  .header { grid-column: 1; flex-direction: column; gap: 4px; }
+  .char-panel, .log-panel { max-height: 280px; }
+  #map { min-height: 260px; }
+  .dashboard-row { justify-content: center; }
+  .agent-console { width: 280px; }
+}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="createOverlay">
+  <div class="create-card">
+    <h2>踏入仙途</h2>
+    <input type="text" id="nameInput" placeholder="赐道号..." maxlength="8">
+    <div class="talent-preview" id="talentPreview">点击下方按钮随机天命</div>
+    <div class="talent-preview" id="pathPreview" style="font-size:0.75rem;color:#7a9aaa;"></div>
+    <div style="font-size:0.72rem;color:#6a5f4a;margin-bottom:6px;">选择修炼方向</div>
+    <div class="path-select">
+      <button class="path-btn selected" data-path="剑修" onclick="selectPath(this)">⚔️ 剑修</button>
+      <button class="path-btn" data-path="丹修" onclick="selectPath(this)">🔥 丹修</button>
+      <button class="path-btn" data-path="阵修" onclick="selectPath(this)">🌀 阵修</button>
+    </div>
+    <button class="create-btn" id="startBtn">开始修仙</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<div class="dungeon-overlay hidden" id="dungeonOverlay">
+  <div class="dungeon-panel" id="dungeonPanel"></div>
+</div>
+
+<div class="container">
+  <div class="header">
+    <div>
+      <h1>修仙大世界</h1>
+      <div class="subtitle" id="worldTime">天元历 元年 春</div>
+    </div>
+    <div class="header-right">
+      <a href="./index.html" class="header-btn" style="text-decoration:none;">📊 观测台</a>
+      <button class="header-btn" onclick="toggleAgentConsole()" id="agentToggleBtn">🤖 Agent</button>
+      <button class="header-btn" onclick="resetGame()">🔄 重开</button>
+    </div>
+  </div>
+
+  <div class="panel char-panel">
+    <div class="panel-title">角色</div>
+    <div class="char-name" id="charName">—</div>
+    <div class="char-realm" id="charRealm">凡人一境</div>
+    <div class="char-path" id="charPath"></div>
+    <div class="char-age" id="charAge">寿元 16 / 80</div>
+    <div class="cultivation-main">
+      <div class="cultivation-title">
+        <span>修为进度</span>
+        <span id="cultPercent">0%</span>
+      </div>
+      <div class="cultivation-bar">
+        <div class="cultivation-fill" id="cultBar" style="width:0%"></div>
+      </div>
+      <div class="cultivation-percent" id="cultText">0 / 100</div>
+      <div class="cultivation-percent" id="bottleneckWarn" style="display:none;color:#c87a7a;font-size:0.65rem;margin-top:3px;"></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-label"><span>❤️ 气血</span><span id="hpVal">0/100</span></div>
+      <div class="stat-bar"><div class="stat-fill fill-hp" id="hpBar" style="width:100%"></div></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-label"><span>🔷 灵力</span><span id="spiritVal">0/100</span></div>
+      <div class="stat-bar"><div class="stat-fill fill-spirit" id="spiritBar" style="width:0%"></div></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-label"><span>🟢 体力</span><span id="staminaVal">0/100</span></div>
+      <div class="stat-bar"><div class="stat-fill fill-stamina" id="staminaBar" style="width:0%"></div></div>
+    </div>
+    <div class="talent-grid">
+      <div class="talent-item">灵根：<span id="tRoot">—</span></div>
+      <div class="talent-item">悟性：<span id="tWisdom">—</span></div>
+      <div class="talent-item">气运：<span id="tLuck">—</span></div>
+      <div class="talent-item">体魄：<span id="tBody">—</span></div>
+    </div>
+    <div class="inventory">
+      <div class="panel-title" style="margin-bottom:5px;border:none;padding:0;">背包</div>
+      <div class="inv-grid" id="invGrid"></div>
+    </div>
+  </div>
+
+  <div class="panel scene-panel">
+    <div class="panel-title">所在</div>
+    <div class="current-area">
+      <div class="area-icon" id="areaIcon">🏘️</div>
+      <div class="area-name" id="areaName">青石村</div>
+      <div class="area-desc" id="areaDesc">凡尘大陆·新手村</div>
+    </div>
+    <div class="action-display">
+      <div class="action-label">当前行动</div>
+      <div class="action-text" id="actionText">无所事事</div>
+      <div class="action-progress"><div class="action-progress-fill" id="actionProgress" style="width:0%"></div></div>
+    </div>
+    <div id="map"></div>
+  </div>
+
+  <div class="panel log-panel">
+    <div class="panel-title">
+      <span>纪事</span>
+      <span style="font-size:0.65rem" id="logCount">0</span>
+    </div>
+    <div class="log-list" id="logList"></div>
+  </div>
+
+  <!-- 仪表盘 -->
+  <div class="dashboard">
+    <div class="auto-play-banner" id="autoPlayBanner">
+      <div class="pulse"></div>
+      <span>Agent 自动游玩中</span>
+      <button class="header-btn" onclick="stopAutoPlay()" style="margin-left:auto;padding:2px 8px;font-size:0.65rem;">停止</button>
+    </div>
+    <div class="dashboard-row" id="dashboardRow">
+      <!-- 动态渲染 -->
+    </div>
+  </div>
+</div>
+
+<!-- Agent 控制台 -->
+<button class="agent-toggle" onclick="toggleAgentConsole()">🤖 Agent</button>
+<div class="agent-console" id="agentConsole">
+  <div class="agent-console-title">
+    <span>🤖 AGENT CONSOLE</span>
+    <span style="font-size:0.6rem;cursor:pointer;" onclick="clearAgentLog()">清空</span>
+  </div>
+  <div class="agent-console-log" id="agentLog"></div>
+</div>
+
+<script>
+// ========== 世界观 ==========
+const REALMS = [
+  { name:'凡人', levels:9, baseExp:100, spiritBase:100, staminaBase:100, lifespan:80 },
+  { name:'练气', levels:12, baseExp:200, spiritBase:200, staminaBase:150, lifespan:200 },
+  { name:'筑基', levels:4, baseExp:500, spiritBase:400, staminaBase:250, lifespan:500 },
+  { name:'金丹', levels:4, baseExp:1500, spiritBase:800, staminaBase:400, lifespan:1000 },
+  { name:'元婴', levels:4, baseExp:5000, spiritBase:2000, staminaBase:800, lifespan:3000 },
+  { name:'化神', levels:4, baseExp:20000, spiritBase:5000, staminaBase:2000, lifespan:10000 },
+];
+const REALM_SUFFIX = ['一','二','三','四','五','六','七','八','九','十','十一','十二'];
+const REALM_SUB = ['初期','中期','后期','巅峰'];
+const ROOT_TYPES = [
+  { name:'五行杂灵根', speed:0.5, weight:40 },
+  { name:'四灵根', speed:0.8, weight:25 },
+  { name:'三灵根', speed:1.0, weight:20 },
+  { name:'双灵根', speed:1.5, weight:10 },
+  { name:'单灵根', speed:3.0, weight:4 },
+  { name:'天灵根', speed:5.0, weight:1 },
+];
+const PATHS = {
+  '剑修': { bonus:'攻击+30%', combatMod:1.3, desc:'以剑入道，攻伐无双', skills:[
+    {name:'剑气斩',icon:'⚔️',cd:0,dmg:1.2,desc:'基础剑气攻击'},
+    {name:'万剑归宗',icon:'🗡️',cd:3,dmg:2.5,desc:'范围剑气，高伤害',cost:30},
+    {name:'剑意护体',icon:'🛡️',cd:4,dmg:0,desc:'减伤60%并回血',cost:20},
+  ]},
+  '丹修': { bonus:'炼丹+50%', alchemyMod:1.5, desc:'丹道通神，万物可炼', skills:[
+    {name:'药毒攻',icon:'🧪',cd:0,dmg:1.0,desc:'毒药攻击，持续伤害'},
+    {name:'丹火焚天',icon:'🔥',cd:3,dmg:2.2,desc:'丹火灼烧敌方',cost:30},
+    {name:'回春丹术',icon:'💚',cd:3,dmg:0,desc:'恢复大量气血',cost:25},
+  ]},
+  '阵修': { bonus:'防御+40%', defenseMod:1.4, desc:'阵法规则，困敌于无形', skills:[
+    {name:'阵刃击',icon:'🌀',cd:0,dmg:1.1,desc:'阵法刃击'},
+    {name:'天罗地网',icon:'🕸️',cd:3,dmg:1.8,desc:'困住敌方，限制行动',cost:30},
+    {name:'万阵护体',icon:'🔮',cd:4,dmg:0,desc:'大幅减伤并反弹',cost:20},
+  ]},
+};
+
+// ========== 地点数据 ==========
+const AREAS = [
+  { id:'village', name:'青石村', icon:'🏘️', desc:'凡尘大陆·安宁村落', minRealm:0, danger:0, x:120, y:180, region:'凡尘' },
+  { id:'forest', name:'迷雾密林', icon:'🌲', desc:'低阶灵草丛生之地', minRealm:0, danger:1, x:180, y:145, region:'凡尘' },
+  { id:'mine', name:'黑岩矿山', icon:'⛏️', desc:'矿石资源丰富', minRealm:0, danger:1, x:65, y:130, region:'凡尘' },
+  { id:'river', name:'碧波灵河', icon:'🌊', desc:'水灵气充沛之地', minRealm:0, danger:1, x:200, y:185, region:'凡尘' },
+  { id:'market', name:'万宝坊市', icon:'🏪', desc:'修士交易之地', minRealm:1, danger:0, x:150, y:200, region:'凡尘' },
+  { id:'cliff', name:'断魂崖', icon:'🏔️', desc:'险峻悬崖，藏有机关', minRealm:1, danger:2, x:240, y:170, region:'凡尘' },
+
+  { id:'mountain', name:'落霞山脉', icon:'⛰️', desc:'筑基方可涉足', minRealm:2, danger:3, x:220, y:95, region:'玄黄' },
+  { id:'sect', name:'天剑宗', icon:'⚔️', desc:'剑修圣地', minRealm:2, danger:2, x:280, y:120, region:'玄黄' },
+  { id:'lake', name:'幽月湖', icon:'🌙', desc:'月华凝聚之湖', minRealm:2, danger:2, x:160, y:165, region:'玄黄' },
+  { id:'volcano', name:'赤炎火山', icon:'🌋', desc:'火灵气沸腾之地', minRealm:2, danger:4, x:300, y:100, region:'玄黄' },
+  { id:'ghost', name:'幽冥古道', icon:'💀', desc:'阴气森森的古老通道', minRealm:3, danger:5, x:120, y:150, region:'玄黄', dungeonId:'ghost_market' },
+  { id:'beast', name:'妖兽山脉', icon:'🐉', desc:'金丹方可探索', minRealm:3, danger:4, x:100, y:70, region:'玄黄' },
+
+  { id:'heaven', name:'九天玄阙', icon:'✨', desc:'元婴之上的世界', minRealm:4, danger:6, x:200, y:30, region:'九天' },
+  { id:'thunder', name:'天劫雷池', icon:'⚡', desc:'雷劫洗礼之地', minRealm:4, danger:7, x:75, y:180, region:'九天', dungeonId:'thunder_abyss' },
+  { id:'celestial', name:'太虚仙宫', icon:'🏯', desc:'传说仙人居所', minRealm:5, danger:8, x:95, y:200, region:'九天' },
+
+  { id:'beach', name:'珊瑚海岸', icon:'🏖️', desc:'海灵气充沛的沙滩', minRealm:1, danger:2, x:340, y:170, region:'海域' },
+  { id:'dragon', name:'海底龙宫', icon:'🐲', desc:'上古龙族遗迹', minRealm:3, danger:5, x:360, y:150, region:'海域', dungeonId:'dragon_palace' },
+
+  { id:'cave', name:'幽冥洞府', icon:'🕳️', desc:'上古修士洞府遗迹', minRealm:0, danger:2, x:140, y:110, region:'凡尘', dungeonId:'spirit_cave' },
+  { id:'tower', name:'镇妖塔', icon:'🗼', desc:'镇压妖魔的高塔', minRealm:2, danger:4, x:260, y:110, region:'玄黄', dungeonId:'demon_tower' },
+  { id:'abyss', name:'万丈深渊', icon:'🕳️', desc:'深不见底的裂谷', minRealm:3, danger:6, x:180, y:70, region:'玄黄', dungeonId:'abyss_rift' },
+  { id:'secret', name:'上古秘境', icon:'🌀', desc:'机缘与危险并存', minRealm:3, danger:5, x:350, y:80, region:'海域', dungeonId:'ancient_realm' },
+  { id:'island', name:'蓬莱仙岛', icon:'🏝️', desc:'海外仙山，机缘无数', minRealm:4, danger:5, x:330, y:40, region:'海域', dungeonId:'penglai_island' },
+];
+
+const ITEMS = {
+  '聚气丹': { icon:'💊', type:'pill', effect:{spirit:30} },
+  '回灵散': { icon:'💧', type:'pill', effect:{spirit:50} },
+  '筑基丹': { icon:'🔮', type:'pill', effect:{cultivation:50}, breakthrough:'练气' },
+  '金元丹': { icon:'✨', type:'pill', effect:{cultivation:100}, breakthrough:'筑基' },
+  '元婴丹': { icon:'💫', type:'pill', effect:{cultivation:200}, breakthrough:'金丹' },
+  '化神丹': { icon:'🌟', type:'pill', effect:{cultivation:500}, breakthrough:'元婴' },
+  '渡劫丹': { icon:'⚡', type:'pill', effect:{cultivation:1000}, breakthrough:'化神' },
+  '百年灵草': { icon:'🌿', type:'herb' },
+  '千年何首乌': { icon:'🌱', type:'herb' },
+  '玄铁矿': { icon:'🪨', type:'ore' },
+  '寒晶': { icon:'💎', type:'ore' },
+  '兽核': { icon:'🔴', type:'special' },
+  '龙鳞': { icon:'🐉', type:'special' },
+  '天雷精': { icon:'⚡', type:'special' },
+  '仙泉露': { icon:'🫧', type:'special' },
+  '古卷残页': { icon:'📜', type:'special' },
+};
+
+const BEASTS = [
+  { name:'灰狼妖', hp:30, atk:8, icon:'🐺', realm:0 },
+  { name:'毒蛇精', hp:50, atk:12, icon:'🐍', realm:0 },
+  { name:'岩熊怪', hp:80, atk:15, icon:'🐻', realm:1 },
+  { name:'赤焰虎', hp:150, atk:25, icon:'🐯', realm:2 },
+  { name:'蛟龙', hp:300, atk:50, icon:'🐲', realm:3 },
+  { name:'九尾妖狐', hp:500, atk:80, icon:'🦊', realm:4 },
+  { name:'雷霆巨鹰', hp:800, atk:120, icon:'🦅', realm:5 },
+];
+
+// ========== 副本定义 ==========
+const DUNGEONS = {
+  spirit_cave: {
+    name:'幽冥洞府', icon:'🕳️', desc:'上古修士遗留的洞府，机关重重，藏有大量灵草和丹药',
+    minRealm:0, floors:5,
+    encounters:[
+      { type:'event', icon:'🕯️', desc:'洞府入口，两壁刻满古老符文，空气中弥漫着淡淡灵气。前方分出两条路。' },
+      { type:'combat', icon:'🕷️', desc:'一群灵蛛挡住了去路！', beast:{ name:'灵蛛群', hp:40, atk:10, icon:'🕷️', realm:0 } },
+      { type:'treasure', icon:'🧰', desc:'发现一个古老的储物箱！' },
+      { type:'combat', icon:'💀', desc:'一具行尸挡在前方！', beast:{ name:'行尸', hp:60, atk:12, icon:'💀', realm:0 } },
+      { type:'boss', icon:'👹', desc:'洞府深处，一尊石像突然睁眼——石魔守卫苏醒！', beast:{ name:'石魔守卫', hp:120, atk:20, icon:'🗿', realm:1 }, reward:{pill:'筑基丹',cultivation:30} },
+    ],
+  },
+  demon_tower: {
+    name:'镇妖塔', icon:'🗼', desc:'镇压万妖的高塔，每层都有妖物把守，登顶可获重宝',
+    minRealm:2, floors:7,
+    encounters:[
+      { type:'combat', icon:'🐗', desc:'第一层：一头獠牙野猪冲来！', beast:{ name:'獠牙野猪', hp:100, atk:20, icon:'🐗', realm:1 } },
+      { type:'event', icon:'🔮', desc:'第二层：一面封妖镜散发着幽光...' },
+      { type:'combat', icon:'🦂', desc:'第三层：巨蝎妖伏在暗处！', beast:{ name:'巨蝎妖', hp:130, atk:25, icon:'🦂', realm:2 } },
+      { type:'treasure', icon:'💎', desc:'第四层：藏宝阁！' },
+      { type:'combat', icon:'🐍', desc:'第五层：蛟蛇拦路！', beast:{ name:'蛟蛇', hp:180, atk:30, icon:'🐍', realm:2 } },
+      { type:'event', icon:'⭐', desc:'第六层：封印之力涌动，你感到修为在波动...' },
+      { type:'boss', icon:'👹', desc:'塔顶：妖塔之主——九尾天狐！', beast:{ name:'九尾天狐', hp:350, atk:45, icon:'🦊', realm:3 }, reward:{pill:'金元丹',cultivation:100} },
+    ],
+  },
+  dragon_palace: {
+    name:'海底龙宫', icon:'🐲', desc:'上古龙族遗弃的水下宫殿，珠光宝气，暗藏杀机',
+    minRealm:3, floors:6,
+    encounters:[
+      { type:'event', icon:'🌊', desc:'宫门前，水灵气凝聚成漩涡，你感到窒息...' },
+      { type:'combat', icon:'🦐', desc:'虾兵蟹将拦路！', beast:{ name:'虾兵蟹将', hp:200, atk:35, icon:'🦐', realm:2 } },
+      { type:'treasure', icon:'🫧', desc:'珊瑚宝库，遍地珍珠！' },
+      { type:'combat', icon:'🐡', desc:'水母妖后袭击！', beast:{ name:'水母妖后', hp:250, atk:40, icon:'🐡', realm:3 } },
+      { type:'event', icon:'🐉', desc:'龙宫正殿，一具龙骸横卧，龙珠微光闪烁...' },
+      { type:'boss', icon:'🐲', desc:'深海蛟龙苏醒！', beast:{ name:'深海蛟龙', hp:500, atk:60, icon:'🐲', realm:3 }, reward:{special:'龙鳞',cultivation:200} },
+    ],
+  },
+  thunder_abyss: {
+    name:'天劫雷池', icon:'⚡', desc:'雷劫凝聚之地，蕴含天雷之力，极度危险',
+    minRealm:4, floors:5,
+    encounters:[
+      { type:'event', icon:'⚡', desc:'雷池边缘，紫色闪电在空中交织...' },
+      { type:'combat', icon:'🦅', desc:'雷霆巨鹰盘旋！', beast:{ name:'雷霆巨鹰', hp:400, atk:60, icon:'🦅', realm:4 } },
+      { type:'treasure', icon:'⚡', desc:'雷池中央，天雷精华凝聚成晶！' },
+      { type:'combat', icon:'🌩️', desc:'雷兽扑来！', beast:{ name:'雷兽', hp:450, atk:70, icon:'🌩️', realm:4 } },
+      { type:'boss', icon:'⚡', desc:'雷池深处，天劫之灵凝聚成形！', beast:{ name:'天劫之灵', hp:700, atk:90, icon:'⚡', realm:5 }, reward:{special:'天雷精',cultivation:500} },
+    ],
+  },
+  abyss_rift: {
+    name:'万丈深渊', icon:'🕳️', desc:'大地裂开的深渊，传说通往幽冥界',
+    minRealm:3, floors:6,
+    encounters:[
+      { type:'event', icon:'🌫️', desc:'深渊入口，黑雾翻涌，隐约有鬼哭狼嚎之声...' },
+      { type:'combat', icon:'👻', desc:'怨灵群！', beast:{ name:'怨灵', hp:220, atk:40, icon:'👻', realm:3 } },
+      { type:'treasure', icon:'📜', desc:'发现一具修士遗骸，怀中古卷残页...' },
+      { type:'combat', icon:'💀', desc:'白骨将军拦路！', beast:{ name:'白骨将军', hp:300, atk:50, icon:'💀', realm:3 } },
+      { type:'event', icon:'🔮', desc:'深渊之底，一道裂缝散发着幽光...' },
+      { type:'boss', icon:'😈', desc:'幽冥鬼帝！', beast:{ name:'幽冥鬼帝', hp:600, atk:80, icon:'😈', realm:4 }, reward:{pill:'元婴丹',cultivation:300} },
+    ],
+  },
+  ancient_realm: {
+    name:'上古秘境', icon:'🌀', desc:'远古大能开辟的秘境空间，机缘无数',
+    minRealm:3, floors:7,
+    encounters:[
+      { type:'event', icon:'🌟', desc:'秘境入口，灵气浓郁如雾，五彩霞光笼罩...' },
+      { type:'treasure', icon:'🌿', desc:'灵药园！遍地千年灵药！' },
+      { type:'combat', icon:'🦋', desc:'灵蝶妖群！', beast:{ name:'灵蝶妖群', hp:250, atk:35, icon:'🦋', realm:3 } },
+      { type:'event', icon:'📜', desc:'一座石碑刻有上古功法，若有所悟...' },
+      { type:'combat', icon:'🦁', desc:'瑞兽狻猊挡路！', beast:{ name:'狻猊', hp:350, atk:55, icon:'🦁', realm:4 } },
+      { type:'treasure', icon:'💎', desc:'秘境宝库！' },
+      { type:'boss', icon:'🌟', desc:'秘境核心：上古大能残魂！', beast:{ name:'上古残魂', hp:800, atk:100, icon:'🌟', realm:5 }, reward:{pill:'化神丹',cultivation:500} },
+    ],
+  },
+  penglai_island: {
+    name:'蓬莱仙岛', icon:'🏝️', desc:'海外仙山，仙人遗府，机缘无数',
+    minRealm:4, floors:8,
+    encounters:[
+      { type:'event', icon:'🏝️', desc:'仙岛外围，祥云缭绕，灵鹤飞舞...' },
+      { type:'treasure', icon:'🫧', desc:'仙泉！饮下仙泉露...' },
+      { type:'combat', icon:'🦢', desc:'仙鹤守卫！', beast:{ name:'仙鹤守卫', hp:350, atk:50, icon:'🦢', realm:4 } },
+      { type:'event', icon:'🌸', desc:'蟠桃园，仙桃散发异香...' },
+      { type:'combat', icon:'🐢', desc:'玄武护卫！', beast:{ name:'玄武', hp:500, atk:60, icon:'🐢', realm:4 } },
+      { type:'treasure', icon:'💎', desc:'仙人遗宝！' },
+      { type:'combat', icon:'🐉', desc:'青龙的残魂！', beast:{ name:'青龙残魂', hp:600, atk:80, icon:'🐉', realm:5 } },
+      { type:'boss', icon:'✨', desc:'仙岛核心：飞升仙人留影！', beast:{ name:'仙人留影', hp:1000, atk:120, icon:'✨', realm:5 }, reward:{pill:'渡劫丹',cultivation:800} },
+    ],
+  },
+  ghost_market: {
+    name:'幽冥古道', icon:'💀', desc:'通往幽冥界的古道，鬼修聚集之地',
+    minRealm:3, floors:5,
+    encounters:[
+      { type:'event', icon:'🌫️', desc:'古道入口，阴风阵阵，鬼火飘忽...' },
+      { type:'combat', icon:'🧟', desc:'鬼修拦路！', beast:{ name:'鬼修', hp:200, atk:35, icon:'🧟', realm:3 } },
+      { type:'treasure', icon:'💰', desc:'鬼修藏宝洞！' },
+      { type:'combat', icon:'💀', desc:'骷髅大军！', beast:{ name:'骷髅大军', hp:280, atk:45, icon:'💀', realm:3 } },
+      { type:'boss', icon:'👻', desc:'幽冥判官！', beast:{ name:'幽冥判官', hp:450, atk:65, icon:'👻', realm:4 }, reward:{pill:'元婴丹',cultivation:250} },
+    ],
+  },
+};
+
+// ========== 状态 ==========
+let agent = null;
+let gameDay = 1, gameYear = 1;
+let speed = 1, paused = false;
+let tickTimer = null;
+let actionProgress = 0, currentAction = null;
+let logEntries = [];
+let inCombat = false;
+let combatState = null;
+let selectedPath = '剑修';
+let map = null;
+let markers = {};
+let dungeonState = null;
+let skillCooldowns = {};
+let autoPlay = false;
+let autoPlayTimer = null;
+let agentLogs = [];
+
+// ========== 工具 ==========
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function weightedPick(items) {
+  const total = items.reduce((s,i) => s + i.weight, 0);
+  let r = Math.random() * total;
+  for (const item of items) { r -= item.weight; if (r <= 0) return item; }
+  return items[items.length-1];
+}
+function getRealmText(realmIdx, level) {
+  const r = REALMS[realmIdx];
+  if (realmIdx === 0) return `${r.name}${REALM_SUFFIX[level-1] || level}层`;
+  return `${r.name}${REALM_SUB[Math.min(level-1, 3)]}`;
+}
+function getMaxExp(realmIdx, level) {
+  return Math.floor(REALMS[realmIdx].baseExp * (1 + (level-1) * 0.3));
+}
+
+// ========== 创建角色 ==========
+let previewTalents = null;
+function refreshPreview() {
+  previewTalents = generateTalents();
+  const t = previewTalents;
+  document.getElementById('talentPreview').innerHTML =
+    `灵根：${t.root.name}（修炼×${t.root.speed}）<br>悟性：${t.wisdom} 气运：${t.luck} 体魄：${t.body}`;
+  updatePathPreview();
+}
+function generateTalents() {
+  return { root: weightedPick(ROOT_TYPES), wisdom: rand(1,10), luck: rand(1,10), body: rand(1,10) };
+}
+function updatePathPreview() {
+  const p = PATHS[selectedPath];
+  document.getElementById('pathPreview').innerHTML = `${p.bonus} · ${p.desc}`;
+}
+function selectPath(btn) {
+  document.querySelectorAll('.path-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedPath = btn.dataset.path;
+  updatePathPreview();
+}
+document.getElementById('startBtn').addEventListener('click', () => {
+  const name = document.getElementById('nameInput').value.trim() || '无名散修';
+  const t = previewTalents;
+  agent = {
+    name, path: selectedPath,
+    realmIdx: 0, realmLevel: 1,
+    spirit: 50, maxSpirit: 100,
+    stamina: 80, maxStamina: 100,
+    cultivation: 0, age: 16,
+    root: t.root, wisdom: t.wisdom, luck: t.luck, body: t.body,
+    areaId: 'village',
+    inventory: [],
+    hp: 100, maxHp: 100,
+  };
+  document.getElementById('createOverlay').classList.add('hidden');
+  addLog(`${name} 以${selectedPath}之道踏入仙途。`, 'event-rare');
+  initMap();
+  updateUI();
+  startGameLoop();
+});
+document.getElementById('nameInput').addEventListener('input', refreshPreview);
+document.getElementById('nameInput').addEventListener('focus', () => { if(!previewTalents) refreshPreview(); });
+
+// ========== Leaflet地图 ==========
+function initMap() {
+  map = L.map('map', {
+    crs: L.CRS.Simple,
+    center: [130, 200],
+    zoom: 1,
+    minZoom: 0,
+    maxZoom: 4,
+    zoomControl: true,
+    attributionControl: false,
+  });
+  drawFantasyMap();
+  AREAS.forEach(area => {
+    const isDungeon = !!area.dungeonId;
+    const marker = L.marker([area.y, area.x], {
+      icon: L.divIcon({
+        className: `map-marker ${isDungeon ? 'dungeon' : ''}`,
+        html: `<span>${area.icon}</span>`,
+        iconSize: [40, 40],
+      })
+    }).addTo(map);
+    const dungeonTag = isDungeon ? '<br><small style="color:#b48aff;">🌀 副本入口</small>' : '';
+    marker.bindPopup(`<b>${area.name}</b><br>${area.desc}<br><small>危险度: ${'★'.repeat(area.danger) || '安全'}</small>${dungeonTag}`);
+    marker.on('click', () => onAreaClick(area));
+    markers[area.id] = marker;
+  });
+  updateMapMarkers();
+}
+
+function onAreaClick(area) {
+  if (area.minRealm > agent.realmIdx) {
+    addLog(`${area.name}需要${REALMS[area.minRealm].name}境才能进入`, 'event-bad');
+    return;
+  }
+  if (currentAction || inCombat || dungeonState) return;
+  // 如果在当前地点且有副本入口 → 直接进入副本
+  if (area.id === agent.areaId) {
+    if (area.dungeonId) {
+      enterDungeon(area.dungeonId);
+    } else {
+      addLog(`已在${area.name}`, 'event-good');
+    }
+    return;
+  }
+  // 否则移动到该地点
+  startAction({ type:'move', name:`前往${area.name}`, duration: rand(3,5), icon:'🚶', target: area.id });
+  addLog(`启程前往${area.name}`, 'event-player');
+}
+
+function drawFantasyMap() {
+  const mortals = [
+    [240,30],[230,50],[220,70],[210,100],[215,130],[225,160],[240,180],
+    [260,195],[280,200],[300,195],[320,180],[340,160],[350,130],
+    [355,100],[350,70],[340,50],[320,35],[300,28],[280,25],[260,28]
+  ];
+  L.polygon(mortals, {color:'#3a3520', weight:2, fillColor:'#1a1810', fillOpacity:0.8}).addTo(map);
+  L.polygon(mortals.map(p=>[p[0]-5,p[1]-5]), {color:'none', fillColor:'#25220f', fillOpacity:0.5}).addTo(map);
+
+  const xuanhuang = [
+    [150,140],[140,160],[135,190],[140,220],[155,250],[180,270],
+    [210,280],[240,275],[270,260],[295,240],[310,210],[315,180],
+    [310,155],[295,140],[270,130],[240,128],[210,130],[180,135]
+  ];
+  L.polygon(xuanhuang, {color:'#2a3040', weight:2, fillColor:'#101820', fillOpacity:0.85}).addTo(map);
+  L.polygon(xuanhuang.map(p=>[p[0]-4,p[1]-4]), {color:'none', fillColor:'#0f1520', fillOpacity:0.4}).addTo(map);
+
+  const jiutian = [
+    [50,160],[45,180],[50,200],[65,215],[85,220],[105,215],
+    [120,200],[125,180],[120,165],[105,155],[85,150],[65,152]
+  ];
+  L.polygon(jiutian, {color:'#4a3050', weight:2, fillColor:'#1a1025', fillOpacity:0.85}).addTo(map);
+
+  const penglai = [
+    [15,330],[12,345],[15,360],[25,370],[40,372],[55,365],
+    [62,350],[58,335],[48,328],[30,326]
+  ];
+  L.polygon(penglai, {color:'#3a4a60', weight:2, fillColor:'#152030', fillOpacity:0.85}).addTo(map);
+
+  L.marker([275, 170], { icon: L.divIcon({ className:'region-label', html:'凡尘大陆', iconSize:[100,20] }) }).addTo(map);
+  L.marker([195, 200], { icon: L.divIcon({ className:'region-label', html:'玄黄大陆', iconSize:[100,20] }) }).addTo(map);
+  L.marker([80, 180], { icon: L.divIcon({ className:'region-label jiutian-label', html:'九天大陆', iconSize:[100,20] }) }).addTo(map);
+  L.marker([37, 350], { icon: L.divIcon({ className:'region-label haiyu-label', html:'蓬莱仙岛', iconSize:[100,20] }) }).addTo(map);
+  L.marker([160, 360], { icon: L.divIcon({ className:'region-label haiyu-label', html:'东海', iconSize:[60,20] }) }).addTo(map);
+
+  const mountainLines = [
+    [[210,100],[205,110],[215,120],[208,135]],
+    [[230,140],[240,150],[235,165]],
+    [[165,170],[175,180],[170,195],[180,205]],
+    [[260,160],[270,170],[265,185]],
+    [[290,180],[300,190],[295,205]],
+    [[55,170],[60,180],[55,195]],
+    [[30,340],[35,348],[30,355]],
+  ];
+  mountainLines.forEach(pts => {
+    L.polyline(pts, {color:'rgba(100,80,50,0.4)', weight:1.5, dashArray:'4,6'}).addTo(map);
+  });
+
+  [[150,70],[300,50],[180,50],[350,30],[80,360],[250,350]].forEach(([y,x]) => {
+    L.circle([y,x], {radius:8, color:'rgba(60,80,120,0.3)', weight:1, fillColor:'rgba(30,40,70,0.2)', fillOpacity:1}).addTo(map);
+  });
+
+  L.polyline([[90,220],[100,195],[115,185],[120,180]], {color:'rgba(80,140,180,0.3)', weight:2, dashArray:'3,5'}).addTo(map);
+
+  const lingPulse = [[145,140],[100,70],[220,95],[200,180],[280,120]];
+  for(let i=0;i<lingPulse.length-1;i++){
+    L.polyline([lingPulse[i],lingPulse[i+1]], {color:'rgba(120,180,200,0.15)', weight:1, dashArray:'8,12'}).addTo(map);
+  }
+
+  [[180,145],[220,95],[100,70],[200,30]].forEach(([y,x]) => {
+    L.circle([y,x], {radius:15, color:'rgba(180,160,120,0.15)', weight:1, fillColor:'rgba(150,130,100,0.1)', fillOpacity:1}).addTo(map);
+    L.circle([y,x], {radius:6, color:'rgba(200,180,140,0.3)', weight:1, fillColor:'rgba(200,180,140,0.2)', fillOpacity:1}).addTo(map);
+  });
+
+  L.circle([37,350], {radius:25, color:'rgba(100,180,220,0.15)', weight:1, fillColor:'rgba(80,150,200,0.1)', fillOpacity:1}).addTo(map);
+  L.polyline([[120,145],[125,150],[120,155],[125,160]], {color:'rgba(120,60,60,0.4)', weight:2, dashArray:'2,4'}).addTo(map);
+}
+
+function updateMapMarkers() {
+  if (!map) return;
+  AREAS.forEach(area => {
+    const marker = markers[area.id];
+    if (!marker) return;
+    const unlocked = area.minRealm <= agent.realmIdx;
+    const current = area.id === agent.areaId;
+    const isDungeon = !!area.dungeonId;
+    const dangerHtml = area.danger > 0 && unlocked ? `<div class="marker-danger">⚠${area.danger}</div>` : '';
+    const dungeonHtml = isDungeon ? `<div class="marker-dungeon-badge">副本</div>` : '';
+    marker.setIcon(L.divIcon({
+      className: `map-marker ${current ? 'current' : ''} ${!unlocked ? 'locked' : ''} ${isDungeon ? 'dungeon' : ''}`,
+      html: `<span>${unlocked ? area.icon : '🔒'}</span>${dangerHtml}${dungeonHtml}`,
+      iconSize: [40, 40],
+    }));
+  });
+  const currentArea = AREAS.find(a => a.id === agent.areaId);
+  if (currentArea) {
+    map.setView([currentArea.y, currentArea.x], map.getZoom());
+  }
+}
+
+// ========== 游戏循环 ==========
+function startGameLoop() {
+  if (tickTimer) clearInterval(tickTimer);
+  tickTimer = setInterval(tick, 3000 / speed);
+}
+function setSpeed(s) {
+  speed = s; paused = s === 0;
+  document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById(s === 0 ? 'btnPause' : `btn${s}x`);
+  if (btn) btn.classList.add('active');
+  if (!paused && agent) { clearInterval(tickTimer); tickTimer = setInterval(tick, 3000 / speed); }
+}
+function tick() {
+  if (paused || !agent || inCombat || dungeonState) return;
+  if (currentAction) {
+    actionProgress += 100 / currentAction.duration;
+    if (actionProgress >= 100) { completeAction(currentAction); currentAction = null; actionProgress = 0; }
+  }
+  // 体力极低时自动休息
+  if (!currentAction && agent.stamina / agent.maxStamina < 0.1) {
+    startAction({ type:'rest', name:'体力不支，休息恢复', duration: rand(3,5), icon:'💤' });
+  }
+  gameDay += 0.05;
+  if (gameDay >= 365) { gameDay = 1; gameYear++; agent.age++; checkLifespan(); }
+  agent.stamina = Math.min(agent.maxStamina, agent.stamina + 0.5);
+  agent.spirit = Math.min(agent.maxSpirit, agent.spirit + 0.3);
+  updateUI();
+}
+function checkLifespan() {
+  if (agent.age > REALMS[agent.realmIdx].lifespan) {
+    addLog(`${agent.name} 寿元已尽，道消身陨。`, 'event-breakthrough');
+    setSpeed(0);
+  }
+}
+
+// ========== 仪表盘 ==========
+function getAvailableActions() {
+  if (!agent) return [];
+  const { areaId, stamina, maxStamina, spirit, maxSpirit } = agent;
+  const actions = [];
+  const staminaPct = stamina / maxStamina;
+  const area = AREAS.find(a => a.id === areaId);
+
+  if (spirit > maxSpirit * 0.15 && !currentAction) {
+    actions.push({ type:'cultivate', label:'修炼', icon:'🧘', class:'btn-cultivate', hint:'消耗灵力提升修为', enabled:true });
+  }
+  const exploreAreas = ['forest','mine','mountain','secret','beast','heaven','river','volcano','cliff','ghost','lake','beach'];
+  if (exploreAreas.includes(areaId) && staminaPct > 0.2) {
+    actions.push({ type:'explore', label:'探索', icon:'🔍', class:'btn-explore', hint:'可能发现资源或触发事件', enabled:true });
+  }
+  if (['forest','river','lake'].includes(areaId) && staminaPct > 0.2) {
+    actions.push({ type:'gather_herb', label:'采集', icon:'🌿', class:'btn-gather', hint:'获取灵草', enabled:true });
+  }
+  if (['mine','volcano'].includes(areaId) && staminaPct > 0.2) {
+    actions.push({ type:'gather_ore', label:'挖矿', icon:'⛏️', class:'btn-gather', hint:'获取矿石', enabled:true });
+  }
+  if (['beach'].includes(areaId) && staminaPct > 0.2) {
+    actions.push({ type:'gather_beach', label:'赶海', icon:'🦐', class:'btn-gather', hint:'可能获得海灵物', enabled:true });
+  }
+  if (area && area.dungeonId) {
+    const dg = DUNGEONS[area.dungeonId];
+    const canEnter = agent.realmIdx >= dg.minRealm && agent.hp > agent.maxHp * 0.3 && agent.stamina > agent.maxStamina * 0.2;
+    actions.push({ type:'enter_dungeon', label:'进入副本', icon:'🌀', class:'btn-dungeon', hint:`${dg.name}（${dg.floors}层）`, enabled:canEnter });
+  }
+  actions.push({ type:'rest', label:'休息', icon:'💤', class:'btn-rest', hint:'恢复体力灵力', enabled:true });
+  return actions;
+}
+
+function renderDashboard() {
+  const row = document.getElementById('dashboardRow');
+  if (!agent) { row.innerHTML = ''; return; }
+
+  // 状态指示器
+  let statusDot = 'status-dot';
+  let statusText = '空闲';
+  if (currentAction) { statusDot += ' busy'; statusText = currentAction.name; }
+  else if (inCombat) { statusDot += ' combat'; statusText = '战斗中'; }
+  else if (dungeonState) { statusDot += ' dungeon'; statusText = `副本：${dungeonState.dungeon.name}`; }
+
+  let html = `<div class="dashboard-status"><div class="${statusDot}"></div><span>${statusText}</span></div>`;
+
+  // 操作按钮
+  if (dungeonState) {
+    // 副本中的操作由副本面板处理，这里只显示退出
+    html += `<button class="action-btn btn-dungeon-action" onclick="exitDungeon()">
+      <span class="btn-icon">🚪</span><span class="btn-label">退出副本</span>
+    </button>`;
+  } else if (inCombat) {
+    // 战斗中显示战斗操作（世界战斗）
+    html += `<button class="action-btn btn-dungeon-action" onclick="worldCombatAction('attack')">
+      <span class="btn-icon">⚔️</span><span class="btn-label">攻击</span>
+      <span class="btn-hint">${Math.floor(10+agent.body*2+agent.realmIdx*5)}伤害</span>
+    </button>`;
+    html += `<button class="action-btn btn-dungeon-action" onclick="worldCombatAction('defend')">
+      <span class="btn-icon">🛡️</span><span class="btn-label">防御</span>
+    </button>`;
+    html += `<button class="action-btn btn-dungeon-action" onclick="worldCombatAction('pill')">
+      <span class="btn-icon">💊</span><span class="btn-label">服丹</span>
+    </button>`;
+    html += `<button class="action-btn btn-dungeon-action" onclick="worldCombatAction('flee')">
+      <span class="btn-icon">🏃</span><span class="btn-label">逃跑</span>
+    </button>`;
+  } else {
+    const actions = getAvailableActions();
+    actions.forEach(a => {
+      const disabled = a.enabled ? '' : 'disabled';
+      const onclick = a.enabled ? `onclick="doDashboardAction('${a.type}')"` : '';
+      html += `<button class="action-btn ${a.class}" ${disabled} ${onclick}>
+        <span class="btn-icon">${a.icon}</span>
+        <span class="btn-label">${a.label}</span>
+        <span class="btn-hint">${a.hint}</span>
+      </button>`;
+    });
+  }
+
+  // 分割线
+  html += `<div class="dashboard-divider"></div>`;
+
+  // 速度控制
+  html += `<div class="speed-control">`;
+  html += `<span class="game-time" id="gameTimeDisplay">第 ${Math.floor(gameDay)} 天</span>`;
+  html += `<button class="speed-btn" onclick="setSpeed(0)" id="btnPause">⏸</button>`;
+  html += `<button class="speed-btn active" onclick="setSpeed(1)" id="btn1x">1×</button>`;
+  html += `<button class="speed-btn" onclick="setSpeed(2)" id="btn2x">2×</button>`;
+  html += `<button class="speed-btn" onclick="setSpeed(5)" id="btn5x">5×</button>`;
+  html += `</div>`;
+
+  row.innerHTML = html;
+}
+
+function doDashboardAction(type) {
+  if (currentAction || inCombat || dungeonState) return;
+  switch(type) {
+    case 'cultivate':
+      if (agent.spirit > agent.maxSpirit * 0.15)
+        startAction({ type:'cultivate', name:'修炼', duration:rand(6,10), icon:'🧘' });
+      break;
+    case 'explore':
+      startAction({ type:'explore', name:'探索', duration:rand(5,8), icon:'🔍', area:agent.areaId });
+      break;
+    case 'gather_herb':
+      startAction({ type:'gather', name:'采集', duration:rand(4,6), icon:'🌿', area:agent.areaId });
+      break;
+    case 'gather_ore':
+      startAction({ type:'gather', name:'挖矿', duration:rand(4,6), icon:'⛏️', area:agent.areaId });
+      break;
+    case 'gather_beach':
+      startAction({ type:'gather', name:'赶海', duration:rand(4,6), icon:'🦐', area:agent.areaId });
+      break;
+    case 'enter_dungeon': {
+      const area = AREAS.find(a => a.id === agent.areaId);
+      if (area && area.dungeonId) enterDungeon(area.dungeonId);
+      break;
+    }
+    case 'rest':
+      startAction({ type:'rest', name:'休息', duration:rand(3,5), icon:'💤' });
+      break;
+  }
+}
+
+function startAction(action) {
+  currentAction = action;
+  actionProgress = 0;
+  hideModal();
+  renderDashboard();
+}
+function completeAction(action) {
+  const { wisdom, root } = agent;
+  switch(action.type) {
+    case 'cultivate': {
+      const gain = Math.floor((5 + wisdom * 0.8) * root.speed * (0.8 + Math.random()*0.4));
+      agent.cultivation += gain;
+      agent.spirit -= 8 + agent.realmIdx * 3;
+      addLog(`修炼有所得，修为+${gain}`, 'event-good');
+      checkBreakthrough();
+      break;
+    }
+    case 'rest':
+      agent.stamina = Math.min(agent.maxStamina, agent.stamina + 20 + agent.body * 2);
+      agent.spirit = Math.min(agent.maxSpirit, agent.spirit + 15);
+      addLog('休息完毕，精神焕发', 'event-good');
+      break;
+    case 'gather':
+      if (action.area === 'forest' || action.area === 'river' || action.area === 'lake') {
+        const herb = Math.random() < 0.2 ? '千年何首乌' : '百年灵草';
+        addItem(herb); addLog(`采得${herb}`, 'event-good');
+      } else if (action.area === 'mine' || action.area === 'volcano') {
+        const ore = Math.random() < 0.15 ? '寒晶' : '玄铁矿';
+        addItem(ore); addLog(`挖得${ore}`, 'event-good');
+      } else if (action.area === 'beach') {
+        if (Math.random() < 0.3) { addItem('仙泉露'); addLog('拾得仙泉露！', 'event-rare'); }
+        else { addItem('百年灵草'); addLog('海边采得灵草', 'event-good'); }
+      }
+      agent.stamina -= 8;
+      if (Math.random() < 0.3) triggerEvent(action.area);
+      break;
+    case 'explore':
+      agent.stamina -= 12 + agent.realmIdx * 2;
+      agent.spirit -= 10;
+      triggerEvent(action.area);
+      agent.cultivation += Math.floor(3 * root.speed);
+      checkBreakthrough();
+      break;
+    case 'move':
+      agent.areaId = action.target;
+      addLog(`抵达${AREAS.find(a=>a.id===action.target).name}`, 'event-good');
+      updateMapMarkers();
+      break;
+    case 'enter_dungeon':
+      enterDungeon(action.dungeonId);
+      break;
+  }
+  renderDashboard();
+}
+
+// ========== 副本系统 ==========
+function enterDungeon(dungeonId) {
+  const dg = DUNGEONS[dungeonId];
+  if (!dg) return;
+  if (agent.realmIdx < dg.minRealm) {
+    addLog(`${dg.name}需要${REALMS[dg.minRealm].name}境才能进入`, 'event-bad');
+    return;
+  }
+  if (agent.hp < agent.maxHp * 0.3 || agent.stamina < agent.maxStamina * 0.2) {
+    addLog('状态不佳，不宜挑战副本', 'event-bad');
+    return;
+  }
+  dungeonState = {
+    id: dungeonId,
+    dungeon: dg,
+    floor: 0,
+    clearedFloors: [],
+  };
+  skillCooldowns = {};
+  addLog(`进入副本：${dg.name}（共${dg.floors}层）`, 'event-dungeon');
+  renderDungeon();
+  renderDashboard();
+}
+
+function renderDungeon() {
+  const ds = dungeonState;
+  if (!ds) return;
+  const dg = ds.dungeon;
+  const enc = dg.encounters[ds.floor];
+  const overlay = document.getElementById('dungeonOverlay');
+  const panel = document.getElementById('dungeonPanel');
+
+  let html = `
+    <div class="dungeon-header">
+      <div class="dungeon-title">${dg.icon} ${dg.name}</div>
+      <div class="dungeon-floor">第 ${ds.floor + 1} / ${dg.floors} 层</div>
+    </div>
+    <div class="dungeon-progress">
+  `;
+  for (let i = 0; i < dg.floors; i++) {
+    const cls = ds.clearedFloors.includes(i) ? 'cleared' : (i === ds.floor ? 'current' : '');
+    html += `<div class="dungeon-floor-dot ${cls}"></div>`;
+  }
+  html += `</div>`;
+
+  if (enc.type === 'combat' || enc.type === 'boss') {
+    if (!combatState || !inCombat) {
+      startDungeonCombat(enc);
+    }
+    html += renderDungeonCombat(enc);
+  } else if (enc.type === 'treasure') {
+    html += `
+      <div class="dungeon-scene">
+        <div class="dungeon-scene-icon">${enc.icon}</div>
+        <div class="dungeon-scene-desc">${enc.desc}</div>
+      </div>
+      <div class="modal-choices">
+        <button class="choice-btn" onclick="openDungeonTreasure()">📦 开启宝箱<span class="choice-hint">获得随机奖励</span></button>
+        <button class="choice-btn" onclick="skipDungeonFloor()">➡️ 跳过<span class="choice-hint">不冒风险，直接前进</span></button>
+      </div>
+    `;
+  } else if (enc.type === 'event') {
+    html += `
+      <div class="dungeon-scene">
+        <div class="dungeon-scene-icon">${enc.icon}</div>
+        <div class="dungeon-scene-desc">${enc.desc}</div>
+      </div>
+      <div class="modal-choices">
+        <button class="choice-btn" onclick="investigateDungeonEvent()">🔍 探查<span class="choice-hint">可能获得机缘或触发陷阱</span></button>
+        <button class="choice-btn" onclick="skipDungeonFloor()">➡️ 继续前进<span class="choice-hint">安全通过</span></button>
+      </div>
+    `;
+  }
+
+  html += `
+    <div style="text-align:center;margin-top:12px;">
+      <button class="speed-btn" onclick="exitDungeon()">🚪 退出副本</button>
+    </div>
+  `;
+
+  panel.innerHTML = html;
+  overlay.classList.remove('hidden');
+}
+
+function renderDungeonCombat(enc) {
+  const c = combatState;
+  if (!c) return '';
+  const pathSkills = PATHS[agent.path].skills;
+  let skillsHtml = '<div class="skill-row">';
+  pathSkills.forEach((sk, i) => {
+    const cd = skillCooldowns[i] || 0;
+    const disabled = cd > 0 || (sk.cost && agent.spirit < sk.cost);
+    const costText = sk.cost ? ` (灵力${sk.cost})` : '';
+    skillsHtml += `<button class="skill-btn" ${disabled ? 'disabled' : ''} onclick="useSkill(${i})">${sk.icon} ${sk.name}${costText}${cd > 0 ? ` CD:${cd}` : ''}</button>`;
+  });
+  skillsHtml += '</div>';
+
+  return `
+    <div class="combat-display">
+      <div class="combat-title">${enc.type === 'boss' ? '👑 Boss战' : '⚔️ 战斗'}</div>
+      <div class="combat-stats">
+        <div class="combat-entity">
+          <div class="entity-icon">🧙</div>
+          <div class="entity-name">${agent.name}</div>
+          <div class="combat-hp"><div class="combat-hp-fill" style="width:${agent.hp/agent.maxHp*100}%;background:linear-gradient(90deg,#5a9a5a,#7ac87a);"></div></div>
+          <div style="font-size:0.6rem;color:#8a7a5a;margin-top:2px;">${agent.hp}/${agent.maxHp}</div>
+          <div style="font-size:0.55rem;color:#6aaae0;margin-top:2px;">🔷${Math.floor(agent.spirit)}/${agent.maxSpirit}</div>
+        </div>
+        <div style="color:#6a5f4a;font-size:1.1rem;align-self:center;">VS</div>
+        <div class="combat-entity">
+          <div class="entity-icon">${c.beast.icon}</div>
+          <div class="entity-name">${c.beast.name}</div>
+          <div class="combat-hp"><div class="combat-hp-fill" style="width:${c.beast.currentHp/c.beast.hp*100}%"></div></div>
+          <div style="font-size:0.6rem;color:#8a7a5a;margin-top:2px;">${c.beast.currentHp}/${c.beast.hp}</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-choices">
+      <button class="choice-btn" onclick="dungeonCombatAction('attack')">⚔️ 普通攻击<span class="choice-hint">造成${Math.floor(10+agent.body*2+agent.realmIdx*5)}伤害</span></button>
+      <button class="choice-btn" onclick="dungeonCombatAction('defend')">🛡️ 防御<span class="choice-hint">减少受到的伤害</span></button>
+      <button class="choice-btn" onclick="dungeonCombatAction('pill')">💊 服用丹药<span class="choice-hint">恢复灵力/体力</span></button>
+      <button class="choice-btn" onclick="dungeonCombatAction('flee')">🏃 逃跑<span class="choice-hint">成功率30%（放弃副本）</span></button>
+    </div>
+    ${skillsHtml}
+  `;
+}
+
+function startDungeonCombat(enc) {
+  inCombat = true;
+  combatState = { beast: { ...enc.beast, currentHp: enc.beast.hp }, turn: 'player', isBoss: enc.type === 'boss' };
+  addLog(`副本中遭遇${enc.beast.name}！`, 'event-dungeon');
+}
+
+function useSkill(idx) {
+  if (!inCombat || !combatState) return;
+  const pathSkills = PATHS[agent.path].skills;
+  const sk = pathSkills[idx];
+  if (skillCooldowns[idx] > 0) return;
+  if (sk.cost && agent.spirit < sk.cost) return;
+  if (sk.cost) agent.spirit -= sk.cost;
+  if (sk.cd) skillCooldowns[idx] = sk.cd + 1;
+
+  const c = combatState;
+  if (sk.dmg > 0) {
+    let dmg = Math.floor((10 + agent.body*2 + agent.realmIdx*5) * sk.dmg);
+    dmg += rand(-2, 5);
+    c.beast.currentHp -= dmg;
+    addLog(`${sk.icon} ${sk.name}！造成${dmg}伤害`, 'event-player');
+  } else {
+    if (agent.path === '剑修') {
+      const def = Math.floor(15 + agent.body * 3);
+      agent.hp = Math.min(agent.maxHp, agent.hp + def);
+      addLog(`${sk.icon} ${sk.name}！恢复${def}气血`, 'event-player');
+    } else if (agent.path === '丹修') {
+      const heal = Math.floor(agent.maxHp * 0.3);
+      agent.hp = Math.min(agent.maxHp, agent.hp + heal);
+      addLog(`${sk.icon} ${sk.name}！恢复${heal}气血`, 'event-good');
+    } else if (agent.path === '阵修') {
+      const shield = Math.floor(agent.maxHp * 0.25);
+      agent.hp = Math.min(agent.maxHp, agent.hp + shield);
+      addLog(`${sk.icon} ${sk.name}！护体阵法`, 'event-player');
+    }
+  }
+  if (!checkDungeonCombatEnd()) dungeonBeastTurn();
+  renderDungeon();
+}
+
+function dungeonCombatAction(action) {
+  const c = combatState;
+  const pathMod = PATHS[agent.path];
+  switch(action) {
+    case 'attack': {
+      let dmg = Math.floor(10 + agent.body*2 + agent.realmIdx*5);
+      if (pathMod.combatMod) dmg = Math.floor(dmg * pathMod.combatMod);
+      dmg += rand(-3, 5);
+      c.beast.currentHp -= dmg;
+      addLog(`攻击${c.beast.name}，造成${dmg}伤害`, 'event-player');
+      break;
+    }
+    case 'defend': {
+      let def = Math.floor(5 + agent.body*1.5);
+      if (pathMod.defenseMod) def = Math.floor(def * pathMod.defenseMod);
+      agent.hp = Math.min(agent.maxHp, agent.hp + def);
+      addLog(`防御姿态，恢复${def}生命`, 'event-player');
+      break;
+    }
+    case 'pill': {
+      const pill = agent.inventory.find(i => ITEMS[i.name] && ITEMS[i.name].type === 'pill' && ITEMS[i.name].effect.spirit);
+      if (pill) {
+        const item = ITEMS[pill.name];
+        if (item.effect.spirit) agent.spirit = Math.min(agent.maxSpirit, agent.spirit + item.effect.spirit);
+        agent.hp = Math.min(agent.maxHp, agent.hp + 20);
+        pill.count--;
+        if (pill.count <= 0) agent.inventory = agent.inventory.filter(i => i.name !== pill.name);
+        addLog(`服用${pill.name}，状态恢复`, 'event-good');
+      } else {
+        addLog('没有可用丹药！', 'event-bad');
+      }
+      break;
+    }
+    case 'flee':
+      if (Math.random() < 0.3) {
+        addLog('成功逃脱！放弃副本探索', 'event-good');
+        exitDungeon();
+        return;
+      } else {
+        addLog('逃跑失败！', 'event-bad');
+      }
+      break;
+  }
+  for (const k in skillCooldowns) {
+    if (skillCooldowns[k] > 0) skillCooldowns[k]--;
+  }
+  if (!checkDungeonCombatEnd()) dungeonBeastTurn();
+  renderDungeon();
+}
+
+function dungeonBeastTurn() {
+  const c = combatState;
+  if (c.beast.currentHp <= 0) return;
+  let beastDmg = c.beast.atk + rand(-2, 3);
+  agent.hp -= beastDmg;
+  addLog(`${c.beast.name}攻击你，造成${beastDmg}伤害`, 'event-bad');
+  if (agent.hp <= 0) {
+    addLog('战斗失败，重伤退出副本！', 'event-bad');
+    agent.hp = Math.floor(agent.maxHp * 0.2);
+    agent.stamina = Math.floor(agent.maxStamina * 0.2);
+    exitDungeon();
+  }
+}
+
+function checkDungeonCombatEnd() {
+  const c = combatState;
+  if (c.beast.currentHp <= 0) {
+    const enc = dungeonState.dungeon.encounters[dungeonState.floor];
+    addLog(`击败${c.beast.name}！`, 'event-rare');
+    agent.cultivation += 10 + (c.beast.realm + 1) * 8;
+    if (enc.type === 'boss' && enc.reward) {
+      if (enc.reward.pill) { addItem(enc.reward.pill); addLog(`获得${enc.reward.pill}！`, 'event-rare'); }
+      if (enc.reward.special) { addItem(enc.reward.special); addLog(`获得${enc.reward.special}！`, 'event-rare'); }
+      if (enc.reward.cultivation) { agent.cultivation += enc.reward.cultivation; }
+      addLog(`通关${dungeonState.dungeon.name}！`, 'event-breakthrough');
+    }
+    addItem('兽核');
+    inCombat = false;
+    combatState = null;
+    dungeonState.clearedFloors.push(dungeonState.floor);
+    checkBreakthrough();
+    setTimeout(() => {
+      if (dungeonState) {
+        dungeonState.floor++;
+        if (dungeonState.floor >= dungeonState.dungeon.floors) {
+          addLog(`恭喜通关${dungeonState.dungeon.name}！获得全部奖励！`, 'event-breakthrough');
+          exitDungeon();
+        } else {
+          renderDungeon();
+        }
+      }
+    }, 1500);
+    return true;
+  }
+  return false;
+}
+
+function openDungeonTreasure() {
+  const rewards = ['聚气丹','回灵散','百年灵草','玄铁矿','兽核'];
+  if (agent.realmIdx >= 2) rewards.push('筑基丹','金元丹');
+  if (agent.realmIdx >= 3) rewards.push('元婴丹');
+  const reward = pick(rewards);
+  addItem(reward);
+  addLog(`宝箱开出：${reward}！`, 'event-rare');
+  advanceDungeonFloor();
+}
+
+function investigateDungeonEvent() {
+  const luck = agent.luck;
+  const roll = Math.random();
+  if (roll < 0.3 + luck * 0.03) {
+    const gain = rand(15, 40) * (agent.realmIdx + 1);
+    agent.cultivation += gain;
+    addLog(`探索有收获！修为+${gain}`, 'event-good');
+    if (Math.random() < 0.3) {
+      addItem(pick(['聚气丹','回灵散','百年灵草']));
+      addLog('还发现了道具！', 'event-rare');
+    }
+  } else if (roll < 0.6) {
+    const dmg = rand(10, 25);
+    agent.hp -= dmg;
+    agent.spirit -= 15;
+    addLog(`触发陷阱！损失${dmg}气血`, 'event-bad');
+    if (agent.hp <= 0) {
+      agent.hp = Math.floor(agent.maxHp * 0.2);
+      addLog('重伤退出副本！', 'event-bad');
+      exitDungeon();
+      return;
+    }
+  } else {
+    addLog('小心翼翼地通过了', 'event-dungeon');
+  }
+  checkBreakthrough();
+  advanceDungeonFloor();
+}
+
+function skipDungeonFloor() {
+  addLog('跳过此层', 'event-dungeon');
+  advanceDungeonFloor();
+}
+
+function advanceDungeonFloor() {
+  if (!dungeonState) return;
+  dungeonState.clearedFloors.push(dungeonState.floor);
+  dungeonState.floor++;
+  if (dungeonState.floor >= dungeonState.dungeon.floors) {
+    addLog(`恭喜通关${dungeonState.dungeon.name}！`, 'event-breakthrough');
+    exitDungeon();
+  } else {
+    renderDungeon();
+  }
+}
+
+function exitDungeon() {
+  if (dungeonState) {
+    addLog(`退出${dungeonState.dungeon.name}`, 'event-dungeon');
+  }
+  dungeonState = null;
+  inCombat = false;
+  combatState = null;
+  skillCooldowns = {};
+  document.getElementById('dungeonOverlay').classList.add('hidden');
+  updateUI();
+  renderDashboard();
+}
+
+// ========== 突破 ==========
+function checkBreakthrough() {
+  const maxExp = getMaxExp(agent.realmIdx, agent.realmLevel);
+  const progressPct = agent.cultivation / maxExp;
+  if (progressPct > 0.7 && progressPct < 1.0) {
+    const bottleneckPenalty = 1 - (progressPct - 0.7) * 2;
+    agent.cultivation -= Math.floor(agent.cultivation * (1 - bottleneckPenalty) * 0.1);
+  }
+  if (agent.cultivation < maxExp) return;
+  const maxLevel = REALMS[agent.realmIdx].levels;
+  const isBig = agent.realmLevel >= maxLevel;
+  if (isBig) {
+    const requiredPill = getBreakthroughPill(agent.realmIdx);
+    const hasPill = agent.inventory.find(i => i.name === requiredPill);
+    if (!hasPill) {
+      addLog(`突破需要${requiredPill}！修为已达极限却无法突破。`, 'event-bad');
+      agent.cultivation = maxExp;
+      return;
+    }
+    hasPill.count--;
+    if (hasPill.count <= 0) agent.inventory = agent.inventory.filter(i => i.name !== requiredPill);
+    addLog(`服用${requiredPill}，尝试突破！`, 'event-rare');
+  }
+  const successRate = isBig ? 0.3 + agent.wisdom*0.04 + agent.luck*0.02 : 0.6 + agent.wisdom*0.03;
+  if (Math.random() > successRate) {
+    const failType = Math.random();
+    if (failType < 0.3 && isBig) {
+      if (agent.realmLevel > 1) {
+        agent.realmLevel--;
+        addLog(`突破失败！走火入魔，跌回${getRealmText(agent.realmIdx, agent.realmLevel)}！`, 'event-breakthrough');
+      } else if (agent.realmIdx > 0) {
+        agent.realmIdx--;
+        agent.realmLevel = REALMS[agent.realmIdx].levels;
+        addLog(`突破失败！境界跌落至${getRealmText(agent.realmIdx, agent.realmLevel)}！`, 'event-breakthrough');
+      }
+      agent.cultivation = 0;
+      agent.hp = Math.floor(agent.maxHp * 0.3);
+      agent.stamina = Math.floor(agent.maxStamina * 0.2);
+    } else if (failType < 0.7) {
+      addLog('突破失败！气血翻涌，修为受损。', 'event-bad');
+      agent.cultivation = Math.floor(agent.cultivation * 0.3);
+      agent.stamina -= 40;
+      agent.hp -= 30;
+    } else {
+      addLog('突破失败！灵力紊乱。', 'event-bad');
+      agent.cultivation = Math.floor(agent.cultivation * 0.5);
+      agent.spirit -= 50;
+    }
+    return;
+  }
+  agent.cultivation = 0;
+  if (isBig) {
+    agent.realmIdx++;
+    agent.realmLevel = 1;
+    if (agent.realmIdx >= REALMS.length) { addLog(`${agent.name} 飞升成仙！`, 'event-breakthrough'); setSpeed(0); return; }
+    const nr = REALMS[agent.realmIdx];
+    agent.maxSpirit = nr.spiritBase; agent.maxStamina = nr.staminaBase;
+    agent.spirit = agent.maxSpirit; agent.stamina = agent.maxStamina;
+    agent.maxHp = 100 + agent.realmIdx * 50 + agent.body * 10;
+    agent.hp = agent.maxHp;
+    addLog(`突破成功！踏入${nr.name}境！天降异象，灵气汇聚。`, 'event-breakthrough');
+    updateMapMarkers();
+  } else {
+    agent.realmLevel++;
+    addLog(`突破至${getRealmText(agent.realmIdx, agent.realmLevel)}！`, 'event-rare');
+  }
+}
+function getBreakthroughPill(realmIdx) {
+  const pills = ['筑基丹', '金元丹', '元婴丹', '化神丹', '渡劫丹'];
+  return pills[realmIdx] || '筑基丹';
+}
+
+// ========== 事件 ==========
+function triggerEvent(areaId) {
+  const event = getEventForArea(areaId);
+  if (!event) return;
+  if (event.combat) { startWorldCombat(event.beast); return; }
+  if (event.choices) { showModal(event.title, event.desc, event.choices); return; }
+  addLog(event.text, event.type);
+  applyEffect(event.effect);
+}
+function getEventForArea(areaId) {
+  const events = {
+    forest: [
+      { text:'发现一株百年灵草！', type:'event-good', effect:{herb:'百年灵草'} },
+      { combat:true, beast: BEASTS[0] },
+      { text:'偶得前人遗落的聚气丹', type:'event-rare', effect:{pill:'聚气丹'} },
+    ],
+    mine: [
+      { text:'挖到一块玄铁矿！', type:'event-good', effect:{ore:'玄铁矿'} },
+      { text:'矿洞塌方，耗费体力', type:'event-bad', effect:{stamina:-15} },
+      { text:'发现寒晶矿脉！', type:'event-rare', effect:{ore:'寒晶'} },
+    ],
+    river: [
+      { text:'河边静修，灵力充沛', type:'event-good', effect:{cultivation:8, spirit:15} },
+      { combat:true, beast: BEASTS[1] },
+      { text:'河中发现灵草', type:'event-good', effect:{herb:'百年灵草'} },
+    ],
+    lake: [
+      { text:'月光洒落湖面，感悟天道', type:'event-good', effect:{cultivation:20} },
+      { combat:true, beast: BEASTS[2] },
+      { text:'湖底偶得千年何首乌', type:'event-rare', effect:{herb:'千年何首乌'} },
+    ],
+    cliff: [
+      { text:'在悬崖上发现灵草', type:'event-good', effect:{herb:'百年灵草'} },
+      { text:'不慎滑落，受伤', type:'event-bad', effect:{hp:-20} },
+      { text:'崖壁上发现古老功法残页', type:'event-rare', effect:{special:'古卷残页', cultivation:15} },
+    ],
+    beach: [
+      { text:'海滩上发现仙泉露', type:'event-rare', effect:{special:'仙泉露'} },
+      { combat:true, beast: BEASTS[1] },
+      { text:'赶海有所收获', type:'event-good', effect:{herb:'百年灵草'} },
+    ],
+    volcano: [
+      { text:'火山口采得寒晶', type:'event-rare', effect:{ore:'寒晶'} },
+      { combat:true, beast: BEASTS[3] },
+      { text:'岩浆灼伤', type:'event-bad', effect:{hp:-25} },
+    ],
+    mountain: [
+      { text:'感悟天地灵气，修为精进', type:'event-good', effect:{cultivation:15} },
+      { combat:true, beast: BEASTS[2] },
+      { text:'发现隐秘洞府，获筑基丹！', type:'event-rare', effect:{pill:'筑基丹'} },
+    ],
+    secret: [
+      { choices:[
+        { text:'🔮 触碰古老石碑', hint:'可能获得传承，也可能触发禁制', onClick: () => {
+          if (Math.random() < 0.5 + agent.luck*0.03) { addLog('获得上古传承！修为大涨！','event-breakthrough'); agent.cultivation += 80; }
+          else { addLog('触发禁制，灵力被抽取','event-bad'); agent.spirit -= 50; }
+        }},
+        { text:'🚪 谨慎离开', hint:'安全但无收获', onClick: () => addLog('安全离开秘境','event-good') },
+      ], title:'上古秘境', desc:'你发现一座古老石碑，散发着神秘光芒...' },
+    ],
+    beast: [
+      { combat:true, beast: pick(BEASTS.slice(1, 4)) },
+      { text:'斩杀妖兽，获得兽核', type:'event-good', effect:{special:'兽核'} },
+    ],
+    village: [
+      { text:'听老人讲古，略有所得', type:'event-good', effect:{cultivation:2} },
+    ],
+    market: [
+      { choices:[
+        { text:'💊 购买聚气丹', hint:'恢复灵力', onClick: () => { addItem('聚气丹'); addLog('购得聚气丹','event-good'); }},
+        { text:'🔮 购买筑基丹', hint:'突破练气必需', onClick: () => { addItem('筑基丹'); addLog('购得筑基丹','event-good'); }},
+        { text:'✨ 购买金元丹', hint:'突破筑基必需', onClick: () => { addItem('金元丹'); addLog('购得金元丹','event-good'); }},
+        { text:'💫 购买元婴丹', hint:'突破金丹必需', onClick: () => { addItem('元婴丹'); addLog('购得元婴丹','event-rare'); }},
+        { text:'🚶 只是逛逛', hint:'不花钱', onClick: () => addLog('在坊市逛了一圈','event-good') },
+      ], title:'万宝坊市', desc:'摊位上摆满了各种灵丹妙药...' },
+    ],
+    sect: [
+      { text:'在藏经阁研读典籍', type:'event-good', effect:{cultivation:25} },
+      { text:'与同门切磋，战斗技巧精进', type:'event-good', effect:{cultivation:10, stamina:-10} },
+    ],
+    heaven: [
+      { text:'感悟法则碎片', type:'event-rare', effect:{cultivation:200} },
+      { text:'雷劫余波，灵力大损', type:'event-bad', effect:{spirit:-100} },
+    ],
+    ghost: [
+      { text:'阴气森森，感到不适', type:'event-bad', effect:{hp:-10} },
+      { text:'遇到鬼修，切磋一番', type:'event-good', effect:{cultivation:30} },
+    ],
+  };
+  return pick(events[areaId] || events.village);
+}
+function applyEffect(effect) {
+  if (!effect) return;
+  if (effect.spirit) agent.spirit = Math.max(0, Math.min(agent.maxSpirit, agent.spirit + effect.spirit));
+  if (effect.stamina) agent.stamina = Math.max(0, Math.min(agent.maxStamina, agent.stamina + effect.stamina));
+  if (effect.cultivation) agent.cultivation = Math.max(0, agent.cultivation + effect.cultivation);
+  if (effect.hp) agent.hp = Math.max(0, Math.min(agent.maxHp, agent.hp + effect.hp));
+  if (effect.herb) addItem(effect.herb);
+  if (effect.pill) addItem(effect.pill);
+  if (effect.ore) addItem(effect.ore);
+  if (effect.special) addItem(effect.special);
+}
+
+// ========== 世界战斗 ==========
+function startWorldCombat(beast) {
+  inCombat = true;
+  combatState = { beast: { ...beast, currentHp: beast.hp }, turn: 'player', isWorld: true };
+  addLog(`遭遇${beast.name}！进入战斗！`, 'event-bad');
+  showWorldCombatUI();
+  renderDashboard();
+}
+function showWorldCombatUI() {
+  const c = combatState;
+  const modal = document.getElementById('modalContent');
+  const pathSkills = PATHS[agent.path].skills;
+  let skillsHtml = '<div class="skill-row">';
+  pathSkills.forEach((sk, i) => {
+    const cd = skillCooldowns[i] || 0;
+    const disabled = cd > 0 || (sk.cost && agent.spirit < sk.cost);
+    const costText = sk.cost ? ` (灵力${sk.cost})` : '';
+    skillsHtml += `<button class="skill-btn" ${disabled ? 'disabled' : ''} onclick="useSkillWorld(${i})">${sk.icon} ${sk.name}${costText}${cd > 0 ? ` CD:${cd}` : ''}</button>`;
+  });
+  skillsHtml += '</div>';
+  modal.innerHTML = `
+    <div class="combat-display">
+      <div class="combat-title">⚔️ 战斗</div>
+      <div class="combat-stats">
+        <div class="combat-entity">
+          <div class="entity-icon">🧙</div>
+          <div class="entity-name">${agent.name}</div>
+          <div class="combat-hp"><div class="combat-hp-fill" style="width:${agent.hp/agent.maxHp*100}%;background:linear-gradient(90deg,#5a9a5a,#7ac87a);"></div></div>
+          <div style="font-size:0.6rem;color:#8a7a5a;margin-top:2px;">${agent.hp}/${agent.maxHp}</div>
+          <div style="font-size:0.55rem;color:#6aaae0;margin-top:2px;">🔷${Math.floor(agent.spirit)}/${agent.maxSpirit}</div>
+        </div>
+        <div style="color:#6a5f4a;font-size:1.1rem;align-self:center;">VS</div>
+        <div class="combat-entity">
+          <div class="entity-icon">${c.beast.icon}</div>
+          <div class="entity-name">${c.beast.name}</div>
+          <div class="combat-hp"><div class="combat-hp-fill" style="width:${c.beast.currentHp/c.beast.hp*100}%"></div></div>
+          <div style="font-size:0.6rem;color:#8a7a5a;margin-top:2px;">${c.beast.currentHp}/${c.beast.hp}</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-choices">
+      <button class="choice-btn" onclick="worldCombatAction('attack')">⚔️ 攻击<span class="choice-hint">造成${Math.floor(10+agent.body*2+agent.realmIdx*5)}伤害</span></button>
+      <button class="choice-btn" onclick="worldCombatAction('defend')">🛡️ 防御<span class="choice-hint">减少受到的伤害</span></button>
+      <button class="choice-btn" onclick="worldCombatAction('pill')">💊 服用丹药<span class="choice-hint">恢复灵力/体力</span></button>
+      <button class="choice-btn" onclick="worldCombatAction('flee')">🏃 逃跑<span class="choice-hint">成功率50%</span></button>
+    </div>
+    ${skillsHtml}
+  `;
+  document.getElementById('modalOverlay').classList.remove('hidden');
+}
+function useSkillWorld(idx) {
+  if (!inCombat || !combatState) return;
+  const pathSkills = PATHS[agent.path].skills;
+  const sk = pathSkills[idx];
+  if (skillCooldowns[idx] > 0) return;
+  if (sk.cost && agent.spirit < sk.cost) return;
+  if (sk.cost) agent.spirit -= sk.cost;
+  if (sk.cd) skillCooldowns[idx] = sk.cd + 1;
+
+  const c = combatState;
+  if (sk.dmg > 0) {
+    let dmg = Math.floor((10 + agent.body*2 + agent.realmIdx*5) * sk.dmg);
+    dmg += rand(-2, 5);
+    c.beast.currentHp -= dmg;
+    addLog(`${sk.icon} ${sk.name}！造成${dmg}伤害`, 'event-player');
+  } else {
+    if (agent.path === '剑修') {
+      const def = Math.floor(15 + agent.body * 3);
+      agent.hp = Math.min(agent.maxHp, agent.hp + def);
+      addLog(`${sk.icon} ${sk.name}！恢复${def}气血`, 'event-player');
+    } else if (agent.path === '丹修') {
+      const heal = Math.floor(agent.maxHp * 0.3);
+      agent.hp = Math.min(agent.maxHp, agent.hp + heal);
+      addLog(`${sk.icon} ${sk.name}！恢复${heal}气血`, 'event-good');
+    } else if (agent.path === '阵修') {
+      const shield = Math.floor(agent.maxHp * 0.25);
+      agent.hp = Math.min(agent.maxHp, agent.hp + shield);
+      addLog(`${sk.icon} ${sk.name}！护体阵法`, 'event-player');
+    }
+  }
+  if (c.beast.currentHp <= 0) {
+    addLog(`击败${c.beast.name}！`, 'event-rare');
+    agent.cultivation += 10 + c.beast.realm * 5;
+    addItem('兽核');
+    inCombat = false; combatState = null; hideModal(); updateUI(); renderDashboard(); return;
+  }
+  let beastDmg = c.beast.atk + rand(-2, 3);
+  agent.hp -= beastDmg;
+  addLog(`${c.beast.name}攻击你，造成${beastDmg}伤害`, 'event-bad');
+  for (const k in skillCooldowns) { if (skillCooldowns[k] > 0) skillCooldowns[k]--; }
+  if (agent.hp <= 0) {
+    addLog('战斗失败，身受重伤！', 'event-bad');
+    agent.hp = Math.floor(agent.maxHp * 0.2);
+    agent.stamina = Math.floor(agent.maxStamina * 0.3);
+    agent.areaId = 'village';
+    inCombat = false; combatState = null; hideModal(); updateUI(); renderDashboard(); return;
+  }
+  showWorldCombatUI(); updateUI();
+}
+function worldCombatAction(action) {
+  const c = combatState;
+  const pathMod = PATHS[agent.path];
+  switch(action) {
+    case 'attack': {
+      let dmg = Math.floor(10 + agent.body*2 + agent.realmIdx*5);
+      if (pathMod.combatMod) dmg = Math.floor(dmg * pathMod.combatMod);
+      dmg += rand(-3, 5);
+      c.beast.currentHp -= dmg;
+      addLog(`攻击${c.beast.name}，造成${dmg}伤害`, 'event-player');
+      break;
+    }
+    case 'defend': {
+      let def = Math.floor(5 + agent.body*1.5);
+      if (pathMod.defenseMod) def = Math.floor(def * pathMod.defenseMod);
+      agent.hp = Math.min(agent.maxHp, agent.hp + def);
+      addLog(`防御姿态，恢复${def}生命`, 'event-player');
+      break;
+    }
+    case 'pill': {
+      const pill = agent.inventory.find(i => ITEMS[i.name] && ITEMS[i.name].type === 'pill' && ITEMS[i.name].effect.spirit);
+      if (pill) {
+        const item = ITEMS[pill.name];
+        if (item.effect.spirit) agent.spirit = Math.min(agent.maxSpirit, agent.spirit + item.effect.spirit);
+        agent.hp = Math.min(agent.maxHp, agent.hp + 20);
+        pill.count--;
+        if (pill.count <= 0) agent.inventory = agent.inventory.filter(i => i.name !== pill.name);
+        addLog(`服用${pill.name}，状态恢复`, 'event-good');
+      } else {
+        addLog('没有可用丹药！', 'event-bad');
+      }
+      break;
+    }
+    case 'flee':
+      if (Math.random() < 0.5) { addLog('成功逃脱！', 'event-good'); inCombat = false; combatState = null; hideModal(); renderDashboard(); return; }
+      else addLog('逃跑失败！', 'event-bad');
+      break;
+  }
+  for (const k in skillCooldowns) { if (skillCooldowns[k] > 0) skillCooldowns[k]--; }
+  if (c.beast.currentHp <= 0) {
+    addLog(`击败${c.beast.name}！`, 'event-rare');
+    agent.cultivation += 10 + c.beast.realm * 5;
+    addItem('兽核');
+    inCombat = false; combatState = null; hideModal(); updateUI(); renderDashboard(); return;
+  }
+  let beastDmg = c.beast.atk + rand(-2, 3);
+  if (action === 'defend') beastDmg = Math.floor(beastDmg * 0.4);
+  agent.hp -= beastDmg;
+  addLog(`${c.beast.name}攻击你，造成${beastDmg}伤害`, 'event-bad');
+  if (agent.hp <= 0) {
+    addLog('战斗失败，身受重伤！', 'event-bad');
+    agent.hp = Math.floor(agent.maxHp * 0.2);
+    agent.stamina = Math.floor(agent.maxStamina * 0.3);
+    agent.areaId = 'village';
+    inCombat = false; combatState = null; hideModal(); updateUI(); renderDashboard(); return;
+  }
+  showWorldCombatUI(); updateUI();
+}
+
+// ========== 背包 ==========
+function addItem(name) {
+  const existing = agent.inventory.find(i => i.name === name);
+  if (existing) existing.count++;
+  else agent.inventory.push({ name, count: 1 });
+}
+function useItem(idx) {
+  const item = agent.inventory[idx];
+  if (!item) return;
+  const data = ITEMS[item.name];
+  if (!data) return;
+  if (data.type === 'pill') {
+    if (data.effect.spirit) agent.spirit = Math.min(agent.maxSpirit, agent.spirit + data.effect.spirit);
+    if (data.effect.cultivation) agent.cultivation += data.effect.cultivation;
+    if (data.effect.hp) agent.hp = Math.min(agent.maxHp, agent.hp + data.effect.hp);
+    addLog(`服用${item.name}`, 'event-good');
+    item.count--;
+    if (item.count <= 0) agent.inventory.splice(idx, 1);
+    checkBreakthrough();
+    updateUI();
+  }
+}
+function renderInventory() {
+  const grid = document.getElementById('invGrid');
+  if (!agent || !agent.inventory) { grid.innerHTML = ''; return; }
+  let html = agent.inventory.slice(0, 8).map((item, i) => {
+    const data = ITEMS[item.name] || { icon:'📦' };
+    return `<div class="inv-slot" onclick="useItem(${i})" title="${item.name}">
+      <span class="inv-icon">${data.icon}</span>
+      <span class="inv-count">×${item.count}</span>
+    </div>`;
+  }).join('');
+  for (let i = agent.inventory.length; i < 8; i++) html += `<div class="inv-slot empty"></div>`;
+  grid.innerHTML = html;
+}
+
+// ========== 弹窗（仅事件选择） ==========
+function showModal(title, desc, choices) {
+  const modal = document.getElementById('modalContent');
+  modal.innerHTML = `
+    <h3>${title}</h3>
+    <p>${desc}</p>
+    <div class="modal-choices">
+      ${choices.map((c, i) => `<button class="choice-btn" onclick="handleChoice(${i})">${c.text}<div class="choice-hint">${c.hint || ''}</div></button>`).join('')}
+    </div>
+  `;
+  window._currentChoices = choices;
+  document.getElementById('modalOverlay').classList.remove('hidden');
+}
+function handleChoice(idx) {
+  const choice = window._currentChoices[idx];
+  if (choice.onClick) { choice.onClick(); hideModal(); }
+}
+function hideModal() {
+  document.getElementById('modalOverlay').classList.add('hidden');
+}
+
+// ========== 日志 ==========
+function addLog(text, type = '') {
+  logEntries.unshift({ text, type, day: `第${Math.floor(gameDay)}天` });
+  if (logEntries.length > 100) logEntries.pop();
+  renderLogs();
+}
+function renderLogs() {
+  document.getElementById('logList').innerHTML = logEntries.slice(0, 50).map(e =>
+    `<div class="log-entry"><span class="log-time">${e.day}</span> <span class="log-text ${e.type}">${e.text}</span></div>`
+  ).join('');
+  document.getElementById('logCount').textContent = logEntries.length;
+}
+
+// ========== UI ==========
+function updateUI() {
+  if (!agent) return;
+  document.getElementById('charName').textContent = agent.name;
+  document.getElementById('charRealm').textContent = getRealmText(agent.realmIdx, agent.realmLevel);
+  document.getElementById('charPath').textContent = agent.path + ' · ' + PATHS[agent.path].desc;
+  document.getElementById('charAge').textContent = `寿元 ${agent.age} / ${REALMS[agent.realmIdx].lifespan}`;
+  const maxExp = getMaxExp(agent.realmIdx, agent.realmLevel);
+  const cultPct = (agent.cultivation / maxExp * 100).toFixed(1);
+  document.getElementById('cultBar').style.width = cultPct + '%';
+  document.getElementById('cultPercent').textContent = cultPct + '%';
+  document.getElementById('cultText').textContent = `${Math.floor(agent.cultivation)} / ${maxExp}`;
+  const bottleneckEl = document.getElementById('bottleneckWarn');
+  const maxLevel = REALMS[agent.realmIdx].levels;
+  const isBigBreakthrough = agent.realmLevel >= maxLevel;
+  if (isBigBreakthrough && agent.cultivation >= maxExp * 0.8) {
+    const requiredPill = getBreakthroughPill(agent.realmIdx);
+    const hasPill = agent.inventory.find(i => i.name === requiredPill);
+    if (!hasPill) {
+      bottleneckEl.style.display = 'block';
+      bottleneckEl.textContent = `⚠ 瓶颈！需要${requiredPill}才能突破`;
+      bottleneckEl.style.color = '#c87a7a';
+    } else {
+      bottleneckEl.style.display = 'block';
+      bottleneckEl.textContent = `✓ 已有${requiredPill}，可以尝试突破`;
+      bottleneckEl.style.color = '#7ac87a';
+    }
+  } else if (agent.cultivation >= maxExp * 0.7) {
+    bottleneckEl.style.display = 'block';
+    bottleneckEl.textContent = '⚠ 接近瓶颈，修为增长放缓';
+    bottleneckEl.style.color = '#c9a96e';
+  } else {
+    bottleneckEl.style.display = 'none';
+  }
+  setBar('hp', agent.hp, agent.maxHp);
+  setBar('spirit', agent.spirit, agent.maxSpirit);
+  setBar('stamina', agent.stamina, agent.maxStamina);
+  document.getElementById('tRoot').textContent = agent.root.name;
+  document.getElementById('tWisdom').textContent = agent.wisdom;
+  document.getElementById('tLuck').textContent = agent.luck;
+  document.getElementById('tBody').textContent = agent.body;
+  const area = AREAS.find(a => a.id === agent.areaId);
+  document.getElementById('areaIcon').textContent = area.icon;
+  document.getElementById('areaName').textContent = area.name;
+  document.getElementById('areaDesc').textContent = area.desc + (area.dungeonId ? ' · 可进入副本' : '');
+  if (currentAction) {
+    document.getElementById('actionText').textContent = `${currentAction.icon||''} ${currentAction.name}`;
+    document.getElementById('actionProgress').style.width = actionProgress + '%';
+  } else if (inCombat) {
+    document.getElementById('actionText').textContent = '⚔️ 战斗中...';
+    document.getElementById('actionProgress').style.width = '0%';
+  } else if (dungeonState) {
+    document.getElementById('actionText').textContent = `🌀 探索${dungeonState.dungeon.name}（第${dungeonState.floor+1}层）`;
+    document.getElementById('actionProgress').style.width = ((dungeonState.floor+1)/dungeonState.dungeon.floors*100) + '%';
+  } else {
+    document.getElementById('actionText').textContent = '空闲 — 从下方仪表盘选择行动';
+    document.getElementById('actionProgress').style.width = '0%';
+  }
+  renderInventory();
+  const seasons = ['春','夏','秋','冬'];
+  document.getElementById('worldTime').textContent = `天元历 ${gameYear}年 ${seasons[Math.floor((gameDay-1)/90)%4]}`;
+  const gtEl = document.getElementById('gameTimeDisplay');
+  if (gtEl) gtEl.textContent = `第 ${Math.floor(gameDay)} 天`;
+  renderDashboard();
+}
+function setBar(id, val, max) {
+  document.getElementById(id+'Val').textContent = `${Math.floor(val)}/${max}`;
+  document.getElementById(id+'Bar').style.width = (val/max*100) + '%';
+}
+
+// ========== 重置 ==========
+function resetGame() {
+  if (tickTimer) clearInterval(tickTimer);
+  stopAutoPlay();
+  agent = null;
+  gameDay = 1; gameYear = 1;
+  speed = 1; paused = false;
+  currentAction = null; actionProgress = 0;
+  logEntries = [];
+  inCombat = false; combatState = null;
+  dungeonState = null; skillCooldowns = {};
+  document.getElementById('dungeonOverlay').classList.add('hidden');
+  document.getElementById('modalOverlay').classList.add('hidden');
+  document.getElementById('createOverlay').classList.remove('hidden');
+  refreshPreview();
+  renderLogs();
+  renderDashboard();
+}
+
+// ========== Agent API（供外部 agent 调用） ==========
+window.gameAPI = {
+  // 获取完整游戏状态
+  getState: function() {
+    return {
+      agent: agent ? { ...agent } : null,
+      currentAction,
+      actionProgress,
+      dungeonState: dungeonState ? { ...dungeonState } : null,
+      inCombat,
+      combatState: combatState ? { ...combatState } : null,
+      gameDay, gameYear,
+      availableActions: agent ? getAvailableActions() : [],
+    };
+  },
+
+  // 获取可用操作列表
+  getActions: function() {
+    return agent ? getAvailableActions() : [];
+  },
+
+  // 执行操作
+  doAction: function(type) {
+    if (!agent || currentAction || inCombat || dungeonState) return false;
+    const actions = getAvailableActions();
+    const found = actions.find(a => a.type === type);
+    if (!found || !found.enabled) return false;
+    doDashboardAction(type);
+    return true;
+  },
+
+  // 移动到地点
+  moveTo: function(areaId) {
+    if (!agent || currentAction || inCombat || dungeonState) return false;
+    const area = AREAS.find(a => a.id === areaId);
+    if (!area || area.minRealm > agent.realmIdx) return false;
+    if (area.id === agent.areaId) return false;
+    startAction({ type:'move', name:`前往${area.name}`, duration: rand(3,5), icon:'🚶', target: area.id });
+    addLog(`启程前往${area.name}`, 'event-player');
+    return true;
+  },
+
+  // 进入副本
+  enterDungeon: function(dungeonId) {
+    if (!agent || currentAction || inCombat || dungeonState) return false;
+    const area = AREAS.find(a => a.dungeonId === dungeonId);
+    if (!area || area.id !== agent.areaId) return false;
+    enterDungeon(dungeonId);
+    return true;
+  },
+
+  // 副本内操作
+  dungeonAction: function(action) {
+    if (!dungeonState) return false;
+    if (inCombat) { dungeonCombatAction(action); return true; }
+    if (action === 'explore') { investigateDungeonEvent(); return true; }
+    if (action === 'skip') { skipDungeonFloor(); return true; }
+    if (action === 'treasure') { openDungeonTreasure(); return true; }
+    if (action === 'exit') { exitDungeon(); return true; }
+    return false;
+  },
+
+  // 战斗中操作
+  combatAction: function(action) {
+    if (!inCombat) return false;
+    if (dungeonState) { dungeonCombatAction(action); return true; }
+    else { worldCombatAction(action); return true; }
+  },
+
+  // 使用技能
+  useSkill: function(idx) {
+    if (!inCombat) return false;
+    if (dungeonState) { useSkill(idx); return true; }
+    else { useSkillWorld(idx); return true; }
+  },
+
+  // 使用物品
+  useItem: function(idx) { if (agent) { useItem(idx); return true; } return false; },
+
+  // 设置速度
+  setSpeed: function(s) { setSpeed(s); },
+
+  // 自动游玩
+  startAutoPlay: function() { startAutoPlay(); },
+  stopAutoPlay: function() { stopAutoPlay(); },
+
+  // 重置
+  reset: function() { resetGame(); },
+
+  // 获取日志
+  getLogs: function() { return logEntries.slice(0, 20); },
+};
+
+// ========== Agent 控制台 ==========
+function toggleAgentConsole() {
+  const c = document.getElementById('agentConsole');
+  c.classList.toggle('visible');
+}
+function clearAgentLog() {
+  agentLogs = [];
+  document.getElementById('agentLog').innerHTML = '';
+}
+function addAgentLog(text, type = '') {
+  agentLogs.unshift({ text, type, time: new Date().toLocaleTimeString() });
+  if (agentLogs.length > 50) agentLogs.pop();
+  const el = document.getElementById('agentLog');
+  if (el) el.innerHTML = agentLogs.map(l =>
+    `<div class="${l.type}">[${l.time}] ${l.text}</div>`
+  ).join('');
+}
+
+// ========== 自动游玩 ==========
+function startAutoPlay() {
+  if (autoPlay) return;
+  autoPlay = true;
+  document.getElementById('autoPlayBanner').classList.add('active');
+  setSpeed(2);
+  addAgentLog('Agent 自动游玩已启动', 'agent-action');
+
+  autoPlayTimer = setInterval(() => {
+    if (!agent || paused) return;
+    if (currentAction || inCombat || dungeonState) return;
+
+    // 简单 AI 决策
+    const actions = getAvailableActions();
+    const enabled = actions.filter(a => a.enabled);
+    if (enabled.length === 0) return;
+
+    // 优先级：体力低→休息，灵力够→修炼，否则随机
+    let chosen;
+    if (agent.stamina / agent.maxStamina < 0.2) {
+      chosen = enabled.find(a => a.type === 'rest');
+    } else if (agent.spirit > agent.maxSpirit * 0.5) {
+      chosen = enabled.find(a => a.type === 'cultivate');
+    }
+    if (!chosen) chosen = pick(enabled);
+
+    if (chosen) {
+      addAgentLog(`执行: ${chosen.label}`, 'agent-action');
+      doDashboardAction(chosen.type);
+    }
+  }, 4000);
+}
+
+function stopAutoPlay() {
+  if (!autoPlay) return;
+  autoPlay = false;
+  if (autoPlayTimer) { clearInterval(autoPlayTimer); autoPlayTimer = null; }
+  document.getElementById('autoPlayBanner').classList.remove('active');
+  addAgentLog('Agent 自动游玩已停止', 'agent-result');
+}
+
+// 初始化
+refreshPreview();
+</script>
+</body>
+</html>
