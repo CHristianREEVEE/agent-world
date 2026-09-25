@@ -2,6 +2,7 @@
 import { randInt, clamp, weightedPick, SEASONS, SHICHEN } from './engine/util.js';
 import { combatAct, startCombat, isCombatActive } from './engine/combat.js';
 import { enterDungeon, dungeonAct, afterDungeonVictory } from './engine/dungeon.js';
+import { newFarm, newMarket, newCodex, newLeaderboard, newAuditLog, newWorldEvents, evalFarm, rollDailyEvent, rollWeather, marketDailyTick, marketSell, checkAchievements, clearFarm, plantCrop, waterFarm, harvestFarm, upgradeFarm, patrolFarm, handleFarm, publicFarmState, publicCodex, listQuests, acceptQuest, claimQuest, refreshQuests, checkQuestEvents, recordLeaderboard, settleWeekLeaderboard, getLeaderboard, createRental, acceptRental, recallRental, settleRental, snapshotFarmForReincarnation, inheritFarm, usePestCharm, useGuardCharm, generateDailyReport, cooperativeWater, cooperativeWaterOwner, questWeekOf, generateToken, validateToken, auditLog, queryAuditLog, checkFertility, consumeFertility, tickFertility, useFertilizer, startFieldUpgrade, tickFieldUpgrade, generateLeyLines, rollWorldEvents, getWorldEvent, getEventCalendar, migrateState, saveChecksum, verifySave, SCHEMA_VERSION, CROPS, FARM, FARM_LEVELS, WEATHERS, ACHIEVEMENTS, QUEST_DEFS, CONSUMABLES, WORLD_EVENTS } from './engine/farm.js';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 
@@ -41,9 +42,16 @@ export class Game extends EventEmitter {
 
   #initialState() {
     return {
+      schemaVersion: SCHEMA_VERSION,
       created: false,
       agents: {},           // agentId -> agent object
-      world: { gameDay: 0.0, speed: 1, paused: false },
+      farms: {},            // agentId -> farm object（灵田，每个修士一块）
+      market: newMarket(),  // 市场动态定价
+      codex: newCodex(),    // 图鉴与成就
+      leaderboard: newLeaderboard(), // 排行榜
+      audit: newAuditLog(),        // 审计日志
+      worldEvents: newWorldEvents(), // 限时世界事件
+      world: { gameDay: 0.0, speed: 1, paused: false, weather: 'sunny' },
       logs: [],
     };
   }
@@ -81,13 +89,20 @@ export class Game extends EventEmitter {
       delete saved.dungeon;
     }
     if (saved.created || (saved.agents && Object.keys(saved.agents).length)) {
-      this.state = Object.assign(this.#initialState(), saved);
-      // 确保所有 agent 有 conversations 字段
+      // 统一 schema 版本迁移（含 farms/market/codex/leaderboard/audit/事件/灵脉等全部字段）
+      const result = migrateState(saved);
+      this.state = Object.assign(this.#initialState(), result.saved);
+      // 确保所有 agent 有 conversations 字段和令牌
       for (const a of Object.values(this.state.agents)) {
         if (!a.conversations) a.conversations = [];
-        if (a.online) { a.online = false; a.mcpSessionId = null; } // 重启后全部离线
+        if (a.online) { a.online = false; a.mcpSessionId = null; }
+        if (!a.token) a.token = generateToken(a.id);
+        if (!this.state.farms[a.id]) this.state.farms[a.id] = newFarm();
       }
       this._colorIdx = Object.keys(this.state.agents).length % AGENT_COLORS.length;
+      if (result.migrations.length) {
+        console.log(`[boot] 存档迁移完成: ${result.migrations.join('; ')}`);
+      }
     }
   }
 
@@ -157,8 +172,11 @@ export class Game extends EventEmitter {
       online: false, mcpSessionId: null, connectedAt: null,
       color, clientLabel: clientLabel || name,
       createdAt: Date.now(),
+      token: generateToken(agentId),
     };
     this.state.agents[agentId] = agent;
+    this.state.farms[agentId] = newFarm();
+    generateLeyLines(this, this.state.farms);
     this.state.created = true;
     this.#recalcStats(agent, true);
     this.addLog(`${name} 踏入修行之路，于青石村开始求道生涯。`, 'breakthrough');
@@ -329,15 +347,66 @@ export class Game extends EventEmitter {
     const eff = dt * w.speed;
     w.gameDay += (eff / this.def.time.tickMs) * this.def.time.dayPerTick;
 
+    // 天气与市场每日结算
+    const prevWeather = w.weather || 'sunny';
+    w.weather = rollWeather(prevWeather, this.season());
+    if (w.weather !== prevWeather) {
+      this.addLog(`天地之间风云变幻，今日天色转为【${WEATHERS[w.weather]?.cn || w.weather}】。`, 'system');
+    }
+    marketDailyTick(this, this.state.market, w.gameDay);
+    settleWeekLeaderboard(this, this.state.leaderboard);
+
+    // 世界事件
+    const worldEvent = rollWorldEvents(this, this.state.worldEvents, w.gameDay);
+    if (worldEvent && worldEvent.startDay === Math.floor(w.gameDay)) {
+      this.addLog(`【世界事件】${worldEvent.name}降临！${worldEvent.desc}`, 'breakthrough');
+      this.emit('worldEvent', worldEvent);
+    }
+
     // 每个 Agent 独立处理
     for (const agent of this.allAgents()) {
       if (agent.dead) continue;
+      const farm = this.state.farms[agent.id];
+      if (!farm) continue;
+      // 任务刷新
+      refreshQuests(this, agent, farm);
+      // 租借到期结算
+      settleRental(this, farm);
+      // 守护符过期
+      if (farm.guardUntil > 0 && Math.floor(w.gameDay) >= farm.guardUntil) farm.guardUntil = 0;
+      // 田块升级推进
+      if (farm.upgrading) {
+        const up = tickFieldUpgrade(this, agent, farm, w.gameDay);
+        if (up?.completed) this.emit('farmUpgrade', { agentId: agent.id, fieldLevel: up.fieldLevel });
+      }
+      // 肥力恢复
+      tickFertility(farm, w.gameDay);
+      // 日报生成
+      generateDailyReport(this, agent, farm);
+      // 灵田生长推进
+      if (farm.stage === 'growing') {
+        const season = this.season();
+        // 守护符免疫虫害/灵兽
+        const guardActive = farm.guardUntil > 0 && Math.floor(w.gameDay) < farm.guardUntil;
+        evalFarm(farm, w.gameDay, season, w.weather);
+        if (!guardActive) {
+          const evt = rollDailyEvent(this, agent, farm, w.gameDay, season, w.weather);
+          if (evt) this.emit('farmEvent', { agentId: agent.id, event: evt });
+        } else if (Math.random() < FARM.eventRate * 0.1) {
+          rollDailyEvent(this, agent, farm, w.gameDay, season, w.weather);
+        }
+        if (farm.ready) {
+          this.addLog(`${agent.name} 灵田中的【${farm.crop}】已然成熟。`, 'event-good');
+          this.emit('farmReady', { agentId: agent.id, crop: farm.crop });
+        }
+      }
       // 寿元检查
       const realm = this.def.realms[agent.realmIdx];
       if (agent.age > realm.maxLifespan) {
         agent.dead = true;
         agent.deathReason = `寿元耗尽，坐化于 ${this.areaDef(agent.areaId)?.name || '荒野'}，享年 ${agent.age} 岁。`;
         agent.combat = null; agent.dungeon = null; agent.currentAction = null;
+        if (farm) farm.stage = 'fallow';
         this.addLog(agent.deathReason, 'event-bad');
         continue;
       }
@@ -640,6 +709,337 @@ export class Game extends EventEmitter {
     return { ok: true, duration: durationMs / 1000, from: agent.areaId, to: areaId };
   }
 
+  // ---------- 灵田种地 ----------
+  farmCrops() { return CROPS; }
+  farmConfig() { return FARM; }
+  farmLevels() { return FARM_LEVELS; }
+  #requireFarmAgent(agentId, token, requireAuth = false) {
+    const agent = this.state.agents[agentId];
+    if (!agent) throw new Error('Agent 不存在');
+    // 写操作令牌鉴权（强制要求）
+    if (requireAuth) {
+      if (!token) throw new Error('缺少身份令牌');
+      const parts = String(token).split('.');
+      if (parts.length !== 3) throw new Error('令牌格式无效');
+      if (parts[0] !== agentId) throw new Error('令牌与修士身份不匹配');
+      // 校验签名
+      const v = validateToken(token, agentId);
+      if (!v.ok) throw new Error(v.error);
+    }
+    const farm = this.state.farms[agentId];
+    if (!farm) this.state.farms[agentId] = newFarm();
+    const f = this.state.farms[agentId];
+    if (f.level === undefined) f.level = 1;
+    if (!Array.isArray(f.events)) f.events = [];
+    if (f.lastEventDay === undefined) f.lastEventDay = -1;
+    if (f.rainBoost === undefined) f.rainBoost = 0;
+    if (f.beastActive === undefined) f.beastActive = false;
+    if (f.fertility === undefined) f.fertility = 50;
+    if (f.fieldLevel === undefined) f.fieldLevel = 1;
+    if (!f.upgrading) f.upgrading = null;
+    if (f.isLeyLine === undefined) f.isLeyLine = false;
+    return { agent, farm: f };
+  }
+  farmStatus(agentId) {
+    const { agent, farm } = this.#requireFarmAgent(agentId);
+    return { ok: true, farm: publicFarmState(this, agent, farm) };
+  }
+  farmList() {
+    const season = this.season();
+    return {
+      ok: true,
+      season,
+      seasonCrops: Object.values(CROPS).filter(c => c.season === season).map(c => c.name),
+      crops: Object.values(CROPS).map(c => ({
+        ...c, tierName: ['凡品', '灵品', '仙品'][c.tier],
+        inSeason: c.season === season,
+        profitPerDay: Math.round(((c.yieldMin + c.yieldMax) / 2 * c.sell - c.cost) / c.periodDays),
+      })),
+      levels: FARM_LEVELS,
+      farm: FARM,
+      farms: Object.entries(this.state.agents).map(([id, agent]) => ({
+        agentId: id,
+        name: agent.name,
+        realmName: this.realmName(agent.realmIdx),
+        areaName: this.areaDef(agent.areaId)?.name || '未知',
+        farm: publicFarmState(this, agent, this.state.farms[id]),
+      })),
+    };
+  }
+  farmClear(agentId, token) {
+    const { agent, farm } = this.#requireFarmAgent(agentId, token, true);
+    clearFarm(this, agent, farm);
+    auditLog(this, agentId, agent.name, 'farm_clear', '灵田', '成功', -10);
+    this.emit('update'); this.markDirty();
+    return { ok: true, farm: publicFarmState(this, agent, farm) };
+  }
+  farmPlant(agentId, cropName, token) {
+    const { agent, farm } = this.#requireFarmAgent(agentId, token, true);
+    // 肥力校验
+    const fertChk = checkFertility(farm.fertility);
+    if (!fertChk.ok) throw new Error(fertChk.error);
+    const r = plantCrop(this, agent, farm, cropName);
+    consumeFertility(farm, cropName);
+    auditLog(this, agentId, agent.name, 'farm_plant', cropName, '成功', -CROPS[cropName]?.cost || 0);
+    this.emit('update'); this.markDirty();
+    return { ok: true, ...r, farm: publicFarmState(this, agent, farm) };
+  }
+  farmWater(agentId, token) {
+    const { agent, farm } = this.#requireFarmAgent(agentId, token, true);
+    waterFarm(this, agent, farm);
+    checkQuestEvents(this, agent, farm, 'water', 1);
+    if (farm.rental?.active && farm.rental.borrowerId === agentId) {
+      const ownerFarm = this.state.farms[farm.rental.ownerId];
+      const owner = this.state.agents[farm.rental.ownerId];
+      if (ownerFarm && owner) {
+        cooperativeWaterOwner(this, ownerFarm);
+        this.addLog(`${owner.name} 亦因协作浇灌记入任务进度。`, 'system');
+      }
+    }
+    auditLog(this, agentId, agent.name, 'farm_water', '灵田', '成功', 0);
+    this.emit('update'); this.markDirty();
+    return { ok: true, farm: publicFarmState(this, agent, farm) };
+  }
+  farmHarvest(agentId, token) {
+    const { agent, farm } = this.#requireFarmAgent(agentId, token, true);
+    const r = harvestFarm(this, agent, farm, this.state.market);
+    checkAchievements(this, agent, farm, this.state.codex);
+    checkQuestEvents(this, agent, farm, 'harvest', r.count);
+    recordLeaderboard(this, this.state.leaderboard, agentId, r.count, r.revenue);
+    auditLog(this, agentId, agent.name, 'farm_harvest', r.item, `收获×${r.count}`, 0);
+    this.emit('update'); this.markDirty();
+    this.emit('harvest', { agentId: agentId, item: r.item, count: r.count, revenue: r.revenue });
+    return { ok: true, ...r, farm: publicFarmState(this, agent, farm) };
+  }
+  farmLedger(agentId, page = 1, perPage = 50) {
+    const { agent, farm } = this.#requireFarmAgent(agentId);
+    const ledger = farm.ledger || [];
+    const total = ledger.length;
+    const start = (page - 1) * perPage;
+    const items = ledger.slice(start, start + perPage);
+    // 近 30 天产量趋势（按天聚合）
+    const trendMap = {};
+    for (const e of ledger) {
+      const d = e.day;
+      if (!trendMap[d]) trendMap[d] = { day: d, count: 0, revenue: 0, crops: {} };
+      trendMap[d].count += e.count;
+      trendMap[d].revenue += e.revenue;
+      trendMap[d].crops[e.crop] = (trendMap[d].crops[e.crop] || 0) + e.count;
+    }
+    const trend = Object.values(trendMap).sort((a, b) => a.day - b.day).slice(-30);
+    return { ok: true, items, total, page, perPage, trend, totalRevenue: farm.totalRevenue };
+  }
+  farmMarket() {
+    const market = this.state.market;
+    return {
+      ok: true,
+      items: Object.entries(CROPS).map(([name, c]) => {
+        const m = market.items[name];
+        return {
+          name, tier: c.tier, tierCN: c.tierCN, season: c.season,
+          baseSell: c.sell, currentPrice: m.currentPrice, soldToday: m.soldToday,
+          priceDelta: Math.round((m.currentPrice - c.sell) / c.sell * 1000) / 10,
+        };
+      }),
+    };
+  }
+  farmCodex() {
+    return { ok: true, ...publicCodex(this.state.codex) };
+  }
+  // ── 任务系统 ──
+  farmQuests(agentId) {
+    const { agent, farm } = this.#requireFarmAgent(agentId);
+    return { ok: true, quests: listQuests(this, agent, farm), questCodexPoints: farm.questCodexPoints };
+  }
+  farmQuestAccept(agentId, questId, token) {
+    const { agent, farm } = this.#requireFarmAgent(agentId, token, true);
+    const r = acceptQuest(this, agent, farm, questId);
+    this.emit('update'); this.markDirty();
+    return { ok: true, ...r, farm: publicFarmState(this, agent, farm) };
+  }
+  farmQuestClaim(agentId, questId, token) {
+    const { agent, farm } = this.#requireFarmAgent(agentId, token, true);
+    const r = claimQuest(this, agent, farm, questId);
+    checkQuestEvents(this, agent, farm, 'harvest', 0);
+    this.emit('update'); this.markDirty();
+    return { ok: true, ...r, farm: publicFarmState(this, agent, farm) };
+  }
+  // ── 排行榜 ──
+  farmLeaderboard(weekOffset = 0) {
+    return { ok: true, ...getLeaderboard(this, this.state.leaderboard, weekOffset) };
+  }
+  // ── 租借 ──
+  farmRent(agentId, borrowerId, days, sharePct, token) {
+    const { agent, farm } = this.#requireFarmAgent(agentId, token, true);
+    const borrower = this.state.agents[borrowerId];
+    if (!borrower) throw new Error('对方修士不存在');
+    if (agentId === borrowerId) throw new Error('不能租给自己');
+    const r = createRental(this, agent, farm, borrowerId, borrower.name, days, sharePct);
+    this.emit('update'); this.markDirty();
+    return { ok: true, ...r, farm: publicFarmState(this, agent, farm) };
+  }
+  farmRentAccept(agentId, token) {
+    const { agent, farm: borrowerFarm } = this.#requireFarmAgent(agentId, token, true);
+    // 查找待接受的租借（租借记录在田主的灵田上）
+    let rentalFarm = null;
+    for (const [fid, f] of Object.entries(this.state.farms)) {
+      if (f.rental && f.rental.active && f.rental.borrowerId === agentId && !f.rental.accepted) {
+        rentalFarm = f;
+        break;
+      }
+    }
+    if (!rentalFarm) throw new Error('无待接受的租借');
+    const r = acceptRental(this, agent, rentalFarm);
+    this.emit('update'); this.markDirty();
+    return { ok: true, ...r, farm: publicFarmState(this, agent, borrowerFarm) };
+  }
+  farmRentRecall(agentId, token) {
+    const { agent, farm } = this.#requireFarmAgent(agentId, token, true);
+    if (farm.rental?.ownerId !== agentId) throw new Error('只有田主可收回灵田');
+    const r = recallRental(this, agent, farm);
+    this.emit('update'); this.markDirty();
+    return { ok: true, ...r, farm: publicFarmState(this, agent, farm) };
+  }
+  // ── 道具 ──
+  farmUseItem(agentId, itemName, token) {
+    const { agent, farm } = this.#requireFarmAgent(agentId, token, true);
+    const item = agent.inventory.find(i => i.name === itemName);
+    if (!item || item.count < 1) throw new Error(`背包无【${itemName}】`);
+    const def = CONSUMABLES[itemName];
+    if (!def) throw new Error(`【${itemName}】不是可使用的道具`);
+    item.count -= 1;
+    if (item.count <= 0) {
+      const idx = agent.inventory.indexOf(item);
+      agent.inventory.splice(idx, 1);
+    }
+    if (def.effect === 'clearPest') usePestCharm(this, agent, farm);
+    else if (def.effect === 'guard') useGuardCharm(this, agent, farm);
+    this.emit('update'); this.markDirty();
+    return { ok: true, item: itemName, farm: publicFarmState(this, agent, farm) };
+  }
+  // ── 日报 ──
+  farmDailyReport(agentId) {
+    const { agent, farm } = this.#requireFarmAgent(agentId);
+    const report = generateDailyReport(this, agent, farm);
+    if (!report) {
+      // 返回最近一次
+      const lastDay = Math.floor(this.state.world.gameDay);
+      return { ok: true, report: { day: lastDay, note: '今日尚无收获事件', income: 0, harvestCount: 0, crops: [], events: [], suggestions: ['播种并收获作物以生成日报'] } };
+    }
+    return { ok: true, report };
+  }
+  farmUpgrade(agentId, token) {
+    const { agent, farm } = this.#requireFarmAgent(agentId, token, true);
+    const r = upgradeFarm(this, agent, farm);
+    auditLog(this, agentId, agent.name, 'farm_upgrade', '灵田等级', '成功', -(FARM_LEVELS[farm.level - 1]?.upgrade?.stones || 0));
+    this.emit('update'); this.markDirty();
+    return { ok: true, ...r, farm: publicFarmState(this, agent, farm) };
+  }
+  // ── 第四轮新方法 ──
+  // 身份令牌验证（供 API 层调用）
+  verifyToken(agentId, token) {
+    const agent = this.state.agents[agentId];
+    if (!agent) return { ok: false, error: 'Agent 不存在' };
+    if (!token) return { ok: false, error: '缺少身份令牌' };
+    const parts = String(token).split('.');
+    if (parts.length !== 3) return { ok: false, error: '令牌格式无效' };
+    if (parts[0] !== agentId) return { ok: false, error: '令牌与修士身份不匹配' };
+    // 令牌必须与存档中的令牌一致（支持重新签发后旧令牌失效）
+    if (agent.token !== token) {
+      const v = validateToken(token, agentId);
+      if (!v.ok) return { ok: false, error: v.error };
+    }
+    return { ok: true, agent };
+  }
+  // 获取令牌
+  getToken(agentId) {
+    const agent = this.state.agents[agentId];
+    if (!agent) throw new Error('Agent 不存在');
+    if (!agent.token) agent.token = generateToken(agentId);
+    return { token: agent.token };
+  }
+  // 审计日志查询
+  auditQuery(agentId, { page = 1, perPage = 50 } = {}) {
+    if (agentId && !this.state.agents[agentId]) throw new Error('Agent 不存在');
+    return { ok: true, ...queryAuditLog(this.state.audit, { agentId, page, perPage }) };
+  }
+  // 田块升级
+  fieldUpgrade(agentId, toLevel, token) {
+    const { agent, farm } = this.#requireFarmAgent(agentId, token, true);
+    if (farm.upgrading) throw new Error('田块正在升级中，请等待完成');
+    startFieldUpgrade(this, agent, farm, toLevel);
+    this.emit('update'); this.markDirty();
+    return { ok: true, upgrading: farm.upgrading, farm: publicFarmState(this, agent, farm) };
+  }
+  // 使用灵肥
+  useFertilizer(agentId, token) {
+    const { agent, farm } = this.#requireFarmAgent(agentId, token, true);
+    const item = agent.inventory.find(i => i.name === '灵肥');
+    if (!item || item.count < 1) throw new Error('背包无【灵肥】，需在集市购买');
+    const r = useFertilizer(agent, farm, 1);
+    auditLog(this, agentId, agent.name, 'consume_item', '灵肥', '成功', 0);
+    this.emit('update'); this.markDirty();
+    return { ok: true, ...r, farm: publicFarmState(this, agent, farm) };
+  }
+  // 世界事件日历
+  worldEventCalendar() {
+    return { ok: true, ...getEventCalendar(this, this.state.worldEvents) };
+  }
+  // 当前世界事件
+  currentWorldEvent() {
+    return { ok: true, event: getWorldEvent(this, this.state.worldEvents, this.state.world.gameDay) };
+  }
+  // 存档导出
+  saveExport() {
+    const data = JSON.parse(JSON.stringify(this.state));
+    const checksum = saveChecksum(data);
+    return { ok: true, save: data, checksum, schemaVersion: SCHEMA_VERSION };
+  }
+  // 存档导入
+  saveImport(data, checksum) {
+    if (checksum && !verifySave(data, checksum)) {
+      throw new Error('存档校验和不匹配，数据可能被篡改');
+    }
+    // 验证 data 是对象
+    if (!data || typeof data !== 'object' || !data.created) {
+      throw new Error('存档数据无效');
+    }
+    const result = migrateState(data);
+    this.state = Object.assign(this.#initialState(), result.saved);
+    // 确保所有 agent 有令牌
+    for (const a of Object.values(this.state.agents)) {
+      if (!a.token) a.token = generateToken(a.id);
+    }
+    this._colorIdx = Object.keys(this.state.agents).length % AGENT_COLORS.length;
+    this.store?.save(this.state);
+    this.emit('update'); this.markDirty();
+    return { ok: true, migrated: result.migrations.length > 0, migrations: result.migrations, schemaVersion: result.version };
+  }
+  // 灵脉地块列表
+  leyLineFarms() {
+    return Object.entries(this.state.farms)
+      .filter(([, f]) => f.isLeyLine)
+      .map(([id, f]) => ({
+        agentId: id,
+        agentName: this.state.agents[id]?.name || '未知',
+        leyLineId: f.leyLineId,
+        fertility: f.fertility,
+        stage: f.stage,
+      }));
+  }
+  farmPatrol(agentId, token) {
+    const { agent, farm } = this.#requireFarmAgent(agentId, token, true);
+    const r = patrolFarm(this, agent, farm);
+    this.emit('update'); this.markDirty();
+    return { ok: true, ...r, farm: publicFarmState(this, agent, farm) };
+  }
+  farmHandle(agentId, eventId, token) {
+    const { agent, farm } = this.#requireFarmAgent(agentId, token, true);
+    const r = handleFarm(this, agent, farm, eventId);
+    this.emit('update'); this.markDirty();
+    return { ok: true, ...r, farm: publicFarmState(this, agent, farm) };
+  }
+
   // ---------- 物品 / 商店 ----------
   #countItem(agent, name) { return agent.inventory.find(i => i.name === name)?.count || 0; }
   #addItem(agent, name, count) {
@@ -706,11 +1106,21 @@ export class Game extends EventEmitter {
     if (!item?.sell) throw new Error('此物无人收购');
     count = clamp(Math.floor(count), 1, this.#countItem(agent, itemName));
     if (!this.#removeItem(agent, itemName, count)) throw new Error('物品不足');
-    const gain = item.sell * count;
+    // 灵植使用市场动态价格
+    const mkt = this.state.market?.items[itemName];
+    const price = mkt ? mkt.currentPrice : item.sell;
+    const gain = Math.round(price * count);
     agent.spiritStones += gain;
-    this.addLog(`${agent.name} 售出【${itemName}】×${count}，灵石 +${gain}。`, 'event-good');
+    if (mkt) marketSell(this, this.state.market, itemName, count);
+    // 更新图鉴统计
+    const cd = this.state.codex.codex[itemName];
+    if (cd) {
+      cd.totalSold += count;
+      cd.totalRevenue += gain;
+    }
+    this.addLog(`${agent.name} 售出【${itemName}】×${count}，灵石 +${gain}（市价 ${price}/枚）。`, 'event-good');
     this.emit('update'); this.markDirty();
-    return { ok: true, message: `售出 ${itemName}×${count}` };
+    return { ok: true, message: `售出 ${itemName}×${count}`, price, gain };
   }
 
   // ---------- 战斗 / 副本代理 ----------
@@ -748,9 +1158,13 @@ export class Game extends EventEmitter {
       world: {
         gameDay: Math.floor(s.world.gameDay),
         gameYear: Math.floor(s.world.gameDay / this.def.time.daysPerYear) + 1,
-        dayOfYear: this.dayOfYear(), season: this.season(), shichen: this.shichen(),
+        dayOfYear: this.dayOfYear(), season: this.season(), weather: s.world.weather, weatherCN: WEATHERS[s.world.weather]?.cn || '晴', shichen: this.shichen(),
         speed: s.world.speed, paused: s.world.paused,
+        worldEvent: getWorldEvent(this, s.worldEvents, s.world.gameDay),
       },
+      market: this.farmMarket(),
+      worldEvents: getEventCalendar(this, s.worldEvents),
+      auditCount: s.audit?.entries?.length || 0,
       recentLogs: s.logs.slice(-40),
     };
 
@@ -794,6 +1208,7 @@ export class Game extends EventEmitter {
         } : null,
         inCombat: isCombatActive(a),
         inDungeon: !!a.dungeon,
+        farm: publicFarmState(this, a, this.state.farms[a.id]),
       };
     });
 
@@ -811,9 +1226,10 @@ export class Game extends EventEmitter {
       world: {
         gameDay: Math.floor(s.world.gameDay),
         gameYear: Math.floor(s.world.gameDay / this.def.time.daysPerYear) + 1,
-        dayOfYear: this.dayOfYear(), season: this.season(), shichen: this.shichen(),
+        dayOfYear: this.dayOfYear(), season: this.season(), weather: s.world.weather, weatherCN: WEATHERS[s.world.weather]?.cn || '晴', shichen: this.shichen(),
         speed: s.world.speed, paused: s.world.paused,
       },
+      market: this.farmMarket(),
       recentLogs: s.logs.slice(-40),
     };
   }
@@ -852,7 +1268,7 @@ export class Game extends EventEmitter {
       world: {
         gameDay: Math.floor(this.state.world.gameDay),
         gameYear: Math.floor(this.state.world.gameDay / this.def.time.daysPerYear) + 1,
-        dayOfYear: this.dayOfYear(), season: this.season(), shichen: this.shichen(),
+        dayOfYear: this.dayOfYear(), season: this.season(), weather: this.state.world.weather, weatherCN: WEATHERS[this.state.world.weather]?.cn || '晴', shichen: this.shichen(),
         speed: this.state.world.speed, paused: this.state.world.paused,
         dead: agent.dead, deathReason: agent.deathReason,
       },
@@ -865,6 +1281,7 @@ export class Game extends EventEmitter {
       availableAreas: this.availableAreas(agentId),
       nearbyAgents: this.senseNearby(agentId),
       conversations: (agent.conversations || []).slice(-10),
+      farm: publicFarmState(this, agent, this.state.farms[agentId]),
     };
   }
 }

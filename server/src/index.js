@@ -122,7 +122,15 @@ for (const [, { game, runner }] of worlds) {
   game.on('update', broadcastStateSoon);
   game.on('log', (entry) => broadcast('log', entry));
   game.on('agent-chat', (ev) => broadcast('agent-chat', ev));
+  game.on('agentChat', (ev) => broadcast('agent-chat', ev));
   runner.on('agent', (ev) => broadcast('agent', ev));
+  // 灵田实时事件
+  game.on('harvest', (ev) => broadcast('harvest', ev));
+  game.on('farmEvent', (ev) => broadcast('farm-event', ev));
+  game.on('farmReady', (ev) => broadcast('farm-ready', ev));
+  game.on('farmUpgrade', (ev) => broadcast('farm-upgrade', ev));
+  game.on('worldEvent', (ev) => broadcast('world-event', ev));
+  game.on('achievement', (ev) => broadcast('achievement', ev));
 }
 
 function switchWorld(worldId) {

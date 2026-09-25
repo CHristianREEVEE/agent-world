@@ -70,6 +70,17 @@ body::before { content:""; position:fixed; inset:0; z-index:0;
 .bar.exp i { background:linear-gradient(90deg,var(--gold-dim),var(--gold)); }
 .acard-foot { display:flex; justify-content:space-between; font-size:9.5px; color:var(--paper-faint); margin-top:5px; }
 .acard-foot b { color:var(--paper-dim); font-weight:500; }
+.acard-farm { font-size:9.5px; color:var(--jade); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.acard-farm.ready { color:var(--gold-bright); }
+.acard-farm.pest { color:var(--red-bright); }
+.acard-farm .fp-bar { display:inline-block; width:40px; height:3px; background:rgba(255,255,255,0.1); border-radius:2px; vertical-align:middle; margin:0 4px; overflow:hidden; }
+.acard-farm .fp-bar i { display:block; height:100%; background:linear-gradient(90deg,#5da887,var(--jade)); }
+.acard-farm.ready .fp-bar i { background:linear-gradient(90deg,var(--gold-dim),var(--gold-bright)); }
+.acard-farm .fl-badge { display:inline-block; font-size:8.5px; padding:0 3px; border-radius:3px; margin-left:3px; border:1px solid var(--line); color:var(--paper-faint); }
+.acard-farm .fl-badge.pest { color:var(--red-bright); border-color:rgba(208,90,78,0.4); }
+.acard-farm .fl-badge.season { color:#7fb8d4; border-color:rgba(127,184,212,0.4); }
+.acard-farm .fl-badge.ley { color:var(--gold-bright); border-color:rgba(236,210,140,0.55); text-shadow:0 0 4px rgba(236,210,140,0.35); }
+.acard-farm .fl-badge.fert { color:var(--jade); border-color:rgba(143,214,180,0.35); }
 
 /* ── 地图 ── */
 .mapwrap { grid-area:map; position:relative; }
@@ -137,6 +148,7 @@ canvas#map:active { cursor:grabbing; }
     <div class="stats-row">
       <div class="stat"><div class="stat-v" id="st-day">0<small>日</small></div><div class="stat-k">世界时间</div></div>
       <div class="stat"><div class="stat-v" id="st-season">—</div><div class="stat-k">季节时辰</div></div>
+      <div class="stat"><div class="stat-v" id="st-weather">—</div><div class="stat-k">天气</div></div>
       <div class="stat"><div class="stat-v" id="st-kills">0</div><div class="stat-k">累计斩妖</div></div>
       <div class="stat"><div class="stat-v" id="st-dung">0</div><div class="stat-k">副本通关</div></div>
       <div class="stat"><div class="stat-v" id="st-agents">6</div><div class="stat-k">在世修士</div></div>
@@ -407,7 +419,8 @@ function initAgents() {
         <div class="bar hp"><i></i></div><div class="bar mp"><i></i></div><div class="bar exp"><i></i></div>
       </div>
       <div class="acard-status"></div>
-      <div class="acard-foot"><span>灵石 <b class="f-stone"></b></span><span>斩妖 <b class="f-kill"></b></span><span>秘境 <b class="f-dung"></b></span></div>`;
+      <div class="acard-foot"><span>灵石 <b class="f-stone"></b></span><span>斩妖 <b class="f-kill"></b></span><span>秘境 <b class="f-dung"></b></span></div>
+      <div class="acard-farm"></div>`;
     el.addEventListener('click', () => { selectedId = selectedId === ag.id ? null : ag.id; followId = selectedId; $('followTag').style.display = followId ? 'block' : 'none'; renderAgents(curFrame); });
     list.appendChild(el);
   }
@@ -436,6 +449,35 @@ function renderAgents(frame) {
     el.querySelector('.f-stone').textContent = ag.spiritStones;
     el.querySelector('.f-kill').textContent = ag.kills;
     el.querySelector('.f-dung').textContent = ag.dungeonsCleared;
+    // 灵田状态
+    const farmEl = el.querySelector('.acard-farm');
+    if (farmEl) {
+      const f = ag.farm;
+      if (!f || f.stage === 'cleared') { farmEl.innerHTML = ''; }
+      else {
+        const leyBadge = f.isLeyLine ? '<span class="fl-badge ley">⚡灵脉</span>' : '';
+        const fertBadge = (typeof f.fertility === 'number' && f.fertility < 30)
+          ? `<span class="fl-badge fert">肥${f.fertility}</span>` : '';
+        if (f.stage === 'fallow' && f.harvestCount === 0) {
+          farmEl.innerHTML = `灵田待播种${leyBadge}${fertBadge}`; farmEl.className = 'acard-farm';
+        } else if (f.stage === 'growing' || f.stage === 'ready') {
+          const pct = f.ready ? 100 : Math.floor((f.progress || 0) * 100);
+          const badges = [leyBadge, fertBadge];
+          if (f.tierCN) badges.push(`<span class="fl-badge">${f.tierCN}</span>`);
+          if (!f.inSeason && f.crop) badges.push(`<span class="fl-badge season">跨季</span>`);
+          if (f.unhandledCount > 0 && !f.ready) badges.push(`<span class="fl-badge pest">⚠${f.unhandledCount}</span>`);
+          if (f.ready) {
+            farmEl.innerHTML = `<span>🌾 ✓ 可收获</span>${badges.join('')}`;
+            farmEl.className = 'acard-farm ready';
+          } else {
+            farmEl.innerHTML = `<span>🌾 种植 ${f.crop||''} ${pct}%</span><span class="fp-bar"><i style="width:${pct}%"></i></span>${badges.join('')}`;
+            farmEl.className = 'acard-farm' + (f.unhandledCount > 0 ? ' pest' : '');
+          }
+        } else if (f.stage === 'fallow') {
+          farmEl.innerHTML = `灵田空闲${leyBadge}${fertBadge}`; farmEl.className = 'acard-farm';
+        }
+      }
+    }
   }
 }
 

@@ -79,7 +79,7 @@ export function buildApi({ getActive, availableWorlds, switchWorld }) {
     const id = agentId || randomUUID();
     game.createAgent(id, { name, path, body, comprehension, luck, clientLabel: 'Web' });
     if (runner) { runner.agentId = id; runner.updateConfig({ persona: name }); }
-    return { ok: true, agentId: id, state: game.agentPublicState(id) };
+    return { ok: true, agentId: id, token: game.getToken(id).token, state: game.agentPublicState(id) };
   }));
 
   r.post('/reincarnate', wrap((req) => {
@@ -147,6 +147,253 @@ export function buildApi({ getActive, availableWorlds, switchWorld }) {
     const agentId = getAgentId(req);
     if (!agentId) throw new Error('需提供 agentId');
     return { ok: true, ...game.dungeon(agentId, req.body?.action) };
+  }));
+
+  // ---------- 灵田种地 ----------
+  // 灵植目录与全部灵田状态（上帝视角）
+  r.get('/farm', wrap((req) => {
+    const { game } = getActive();
+    return game.farmList();
+  }));
+
+  // 查看自己的灵田状态
+  r.get('/farm/status', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    return game.farmStatus(agentId);
+  }));
+
+  // 开垦灵田（消耗灵石）
+  r.post('/farm/clear', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const token = req.body?.token || req.headers['x-auth-token'];
+    return game.farmClear(agentId, token);
+  }));
+
+  // 播种灵植
+  r.post('/farm/plant', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const token = req.body?.token || req.headers['x-auth-token'];
+    const cropName = req.body?.cropName || req.query.cropName;
+    if (!cropName) throw new Error('需提供 cropName');
+    return game.farmPlant(agentId, cropName, token);
+  }));
+
+  // 浇灌（加速生长）
+  r.post('/farm/water', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const token = req.body?.token || req.headers['x-auth-token'];
+    return game.farmWater(agentId, token);
+  }));
+
+  // 收获（产出进背包，可卖商店换灵石）
+  r.post('/farm/harvest', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const token = req.body?.token || req.headers['x-auth-token'];
+    return game.farmHarvest(agentId, token);
+  }));
+
+  // 升级灵田等级
+  r.post('/farm/upgrade', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const token = req.body?.token || req.headers['x-auth-token'];
+    return game.farmUpgrade(agentId, token);
+  }));
+
+  // 巡查灵田（发现随机事件）
+  r.post('/farm/patrol', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const token = req.body?.token || req.headers['x-auth-token'];
+    return game.farmPatrol(agentId, token);
+  }));
+
+  // 处理灵田事件（需先巡查）
+  r.post('/farm/handle', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const eventId = req.body?.eventId || req.query.eventId;
+    if (!eventId) throw new Error('需提供 eventId');
+    const token = req.body?.token || req.headers['x-auth-token'];
+    return game.farmHandle(agentId, eventId, token);
+  }));
+
+  // 灵田收获流水（分页 + 筛选）
+  r.get('/farm/ledger', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const page = parseInt(req.query.page, 10) || 1;
+    const perPage = Math.min(100, parseInt(req.query.perPage, 10) || 50);
+    return game.farmLedger(agentId, page, perPage);
+  }));
+
+  // 市场价格表
+  r.get('/farm/market', wrap(() => {
+    const { game } = getActive();
+    return game.farmMarket();
+  }));
+
+  // 灵植图鉴与成就
+  r.get('/farm/codex', wrap(() => {
+    const { game } = getActive();
+    return game.farmCodex();
+  }));
+
+  // ── 身份令牌 ──
+  r.get('/farm/token', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    return game.getToken(agentId);
+  }));
+
+  // ── 审计日志 ──
+  r.get('/farm/audit', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const page = parseInt(req.query.page, 10) || 1;
+    const perPage = Math.min(200, parseInt(req.query.perPage, 10) || 50);
+    return game.auditQuery(agentId, { page, perPage });
+  }));
+
+  // ── 田块升级 ──
+  r.post('/farm/field-upgrade', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const token = req.body?.token || req.headers['x-auth-token'];
+    const toLevel = parseInt(req.body?.toLevel, 10) || 2;
+    return game.fieldUpgrade(agentId, toLevel, token);
+  }));
+
+  // ── 使用灵肥 ──
+  r.post('/farm/use-fertilizer', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const token = req.body?.token || req.headers['x-auth-token'];
+    return game.useFertilizer(agentId, token);
+  }));
+
+  // ── 世界事件 ──
+  r.get('/farm/world-events', wrap(() => {
+    const { game } = getActive();
+    return game.worldEventCalendar();
+  }));
+
+  // ── 灵脉地块 ──
+  r.get('/farm/ley-lines', wrap(() => {
+    const { game } = getActive();
+    return { ok: true, leyLines: game.leyLineFarms() };
+  }));
+
+  // ── 存档导出/导入 ──
+  r.get('/farm/save-export', wrap(() => {
+    const { game } = getActive();
+    return game.saveExport();
+  }));
+  r.post('/farm/save-import', wrap((req) => {
+    const { game } = getActive();
+    const data = req.body?.save;
+    const checksum = req.body?.checksum;
+    if (!data) throw new Error('需提供 save 数据');
+    return game.saveImport(data, checksum);
+  }));
+
+  // ── 任务系统 ──
+  r.get('/farm/quests', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    return game.farmQuests(agentId);
+  }));
+  r.post('/farm/quest/accept', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const questId = req.body?.questId || req.query.questId;
+    if (!questId) throw new Error('需提供 questId');
+    const token = req.body?.token || req.headers['x-auth-token'];
+    return game.farmQuestAccept(agentId, questId, token);
+  }));
+  r.post('/farm/quest/claim', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const questId = req.body?.questId || req.query.questId;
+    if (!questId) throw new Error('需提供 questId');
+    const token = req.body?.token || req.headers['x-auth-token'];
+    return game.farmQuestClaim(agentId, questId, token);
+  }));
+
+  // ── 排行榜 ──
+  r.get('/farm/leaderboard', wrap((req) => {
+    const { game } = getActive();
+    const offset = parseInt(req.query.week, 10) || 0;
+    return game.farmLeaderboard(offset);
+  }));
+
+  // ── 租借 ──
+  r.post('/farm/rent', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const borrowerId = req.body?.borrowerId;
+    const days = req.body?.days;
+    const sharePct = req.body?.sharePct;
+    if (!borrowerId) throw new Error('需提供 borrowerId');
+    if (!days) throw new Error('需提供 days');
+    if (!sharePct) throw new Error('需提供 sharePct');
+    const token = req.body?.token || req.headers['x-auth-token'];
+    return game.farmRent(agentId, borrowerId, days, sharePct, token);
+  }));
+  r.post('/farm/rent/accept', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const token = req.body?.token || req.headers['x-auth-token'];
+    return game.farmRentAccept(agentId, token);
+  }));
+  r.post('/farm/rent/recall', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const token = req.body?.token || req.headers['x-auth-token'];
+    return game.farmRentRecall(agentId, token);
+  }));
+
+  // ── 道具使用 ──
+  r.post('/farm/use-item', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    const itemName = req.body?.itemName || req.query.itemName;
+    if (!itemName) throw new Error('需提供 itemName');
+    const token = req.body?.token || req.headers['x-auth-token'];
+    return game.farmUseItem(agentId, itemName, token);
+  }));
+
+  // ── 日报 ──
+  r.get('/farm/daily-report', wrap((req) => {
+    const { game } = getActive();
+    const agentId = getAgentId(req);
+    if (!agentId) throw new Error('需提供 agentId');
+    return game.farmDailyReport(agentId);
   }));
 
   // ---------- 战斗 ----------

@@ -167,6 +167,54 @@ body::before {
 @keyframes toast-out { to { opacity:0; transform:translateX(30px); } }
 .agent-count { margin-left:auto; font-size:13px; color:var(--gold); font-family:var(--font-song); }
 .agent-list { flex:1; overflow-y:auto; padding:6px 8px 12px; display:flex; flex-direction:column; gap:5px; }
+.farm-section { border-top:1px solid rgba(201,169,97,0.15); display:flex; flex-direction:column; max-height:320px; }
+.farm-section .panel-title { font-size:13px; letter-spacing:3px; padding:8px 12px 6px; }
+.farm-season { padding:4px 12px 6px; font-size:11px; color:var(--paper-dim); border-bottom:1px solid rgba(201,169,97,0.1); line-height:1.6; }
+.farm-season b { color:var(--gold-bright); font-family:var(--font-kai); }
+.farm-list { padding:4px 8px 10px; display:flex; flex-direction:column; gap:4px; overflow-y:auto; max-height:250px; }
+.farm-card { display:flex; align-items:center; gap:6px; padding:6px 8px; background:rgba(143,214,180,0.05); border:1px solid rgba(143,214,180,0.12); border-radius:6px; font-size:12px; flex-wrap:wrap; }
+.farm-card.ready { border-color:rgba(201,169,97,0.5); background:rgba(201,169,97,0.08); }
+.farm-card.pest { border-color:rgba(208,90,78,0.5); background:rgba(208,90,78,0.06); }
+.farm-crop-name { flex:1; min-width:60px; color:var(--jade); font-family:var(--font-song); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.farm-card.ready .farm-crop-name { color:var(--gold-bright); }
+.farm-bar { width:50px; height:5px; border-radius:3px; background:rgba(0,0,0,0.5); overflow:hidden; flex-shrink:0; }
+.farm-bar i { display:block; height:100%; background:linear-gradient(90deg,#5da887,var(--jade)); transition:width .6s; }
+.farm-card.ready .farm-bar i { background:linear-gradient(90deg,var(--gold-dim),var(--gold-bright)); }
+.farm-pct { font-size:10px; color:var(--paper-faint); min-width:32px; text-align:right; font-variant-numeric:tabular-nums; }
+.farm-badge { font-size:9px; padding:1px 5px; border-radius:8px; border:1px solid var(--line); color:var(--paper-dim); flex-shrink:0; white-space:nowrap; }
+.farm-badge.ready { color:var(--gold-bright); border-color:var(--gold); background:rgba(201,169,97,0.15); animation:farmPulse 1.6s infinite; }
+.farm-badge.tier0 { color:var(--paper-dim); }
+.farm-badge.tier1 { color:var(--jade); border-color:rgba(143,214,180,0.4); }
+.farm-badge.tier2 { color:#c77dff; border-color:rgba(199,125,255,0.4); }
+.farm-badge.pest { color:var(--cinnabar-bright); border-color:rgba(208,90,78,0.4); }
+.farm-badge.season { color:#7fb8d4; border-color:rgba(127,184,212,0.4); }
+.farm-lvl { font-size:9px; color:var(--gold); border:1px solid rgba(201,169,97,0.3); padding:0 4px; border-radius:4px; flex-shrink:0; }
+@keyframes farmPulse { 50% { opacity:0.6; } }
+.farm-empty { color:var(--paper-faint); font-size:11px; text-align:center; padding:8px 0; letter-spacing:1px; }
+.farm-market { padding:4px 12px 6px; border-top:1px solid rgba(201,169,97,0.1); font-size:10px; color:var(--paper-dim); max-height:140px; overflow-y:auto; }
+.farm-market .mm-row { display:flex; justify-content:space-between; padding:2px 0; }
+.farm-market .mm-name { color:var(--paper); }
+.farm-market .mm-price { font-variant-numeric:tabular-nums; }
+.farm-market .mm-price.up { color:var(--cinnabar-bright); }
+.farm-market .mm-price.down { color:var(--jade); }
+.farm-market .mm-sold { color:var(--paper-faint); font-size:9px; margin-left:6px; }
+.weather-chip { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:12px; border:1px solid var(--line); background:rgba(201,169,97,0.06); color:var(--gold); font-size:12px; letter-spacing:1px; margin-left:8px; }
+.weather-chip svg { width:14px; height:14px; }
+.farm-codex { padding:6px 10px; max-height:200px; overflow-y:auto; display:none; }
+.farm-codex.open { display:block; }
+.codex-item { display:flex; align-items:center; gap:6px; padding:4px 6px; border-radius:4px; font-size:11px; }
+.codex-item.unlocked { color:var(--paper); }
+.codex-item.locked { color:var(--paper-faint); opacity:0.55; }
+.codex-item .ci-tile { width:28px; height:28px; border-radius:4px; background:rgba(201,169,97,0.1); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-family:var(--font-kai); font-size:14px; }
+.codex-item.locked .ci-tile { background:rgba(255,255,255,0.02); color:var(--paper-faint); }
+.codex-item .ci-name { flex:1; font-family:var(--font-song); }
+.codex-item .ci-meta { font-size:9px; color:var(--paper-faint); }
+.achievement-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:4px; }
+.ach-item { font-size:10px; padding:3px 6px; border-radius:3px; border:1px solid var(--line); color:var(--paper-dim); }
+.ach-item.got { color:var(--gold-bright); border-color:rgba(201,169,97,0.4); background:rgba(201,169,97,0.08); }
+.farm-stats { padding:4px 12px; display:flex; gap:12px; font-size:10px; color:var(--paper-dim); border-top:1px solid rgba(201,169,97,0.1); }
+.farm-stats .fs-item { text-align:center; }
+.farm-stats .fs-v { color:var(--gold-bright); font-family:var(--font-song); font-size:13px; display:block; }
 .agent-list-empty { color:var(--paper-faint); font-size:13px; text-align:center; padding:30px 0; letter-spacing:3px; line-height:2; }
 .agent-card { display:flex; align-items:center; justify-content:space-between; padding:9px 10px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:6px; cursor:pointer; transition:all 0.15s; gap:6px; }
 .agent-card:hover { border-color:var(--line); background:rgba(201,169,97,0.05); }
@@ -231,6 +279,7 @@ body::before {
       <span class="time-main" id="time-main">第一年 春 · 初一 · 子时</span>
       <span class="time-sub" id="time-sub">天地初开</span>
     </div>
+    <span class="weather-chip" id="weather-chip" title="当前天气"><span id="weather-icon">☀️</span><span id="weather-text">晴</span></span>
     <div class="topbar-controls">
       <select id="lang-select" class="lang-select" title="Language / 语言">
         <option value="zh">中文</option>
@@ -262,6 +311,16 @@ body::before {
       <div class="panel-title"><span class="title-glyph">册</span><span data-i18n="roster">修士名册</span> <span class="agent-count" id="agent-count">0</span></div>
       <div class="agent-list" id="agent-list">
         <div class="agent-list-empty" data-i18n="empty_roster">天地静候修士踏入</div>
+      </div>
+      <div class="farm-section">
+        <div class="panel-title"><span class="title-glyph">田</span><span>灵田·耕种</span><span style="margin-left:auto;display:flex;gap:6px;">
+          <button id="codex-toggle" class="btn-sm btn-ghost" style="padding:2px 8px;font-size:10px;">图鉴</button>
+        </span></div>
+        <div class="farm-season" id="farm-season"></div>
+        <div class="farm-list" id="farm-list"></div>
+        <div class="farm-stats" id="farm-stats"></div>
+        <div class="farm-market" id="farm-market"></div>
+        <div class="farm-codex" id="farm-codex"></div>
       </div>
     </aside>
 
@@ -828,6 +887,11 @@ window.InkMap = InkMap;
 
   function bindUI() {
     $('mp-close').addEventListener('click', hidePopup);
+    $('codex-toggle').addEventListener('click', () => {
+      const el = $('farm-codex');
+      el.classList.toggle('open');
+      if (el.classList.contains('open')) renderCodex();
+    });
     $('speed-group').querySelectorAll('.speed-btn').forEach((b) => {
       b.addEventListener('click', async () => { const sp = +b.dataset.speed; try { await api('POST', '/game/speed', { speed: sp }); setSpeedUI(sp); } catch (e) { toast(e.message, 'bad'); } });
     });
@@ -912,11 +976,97 @@ window.InkMap = InkMap;
   function renderAll() {
     const st = S.state; if (!st) return;
     renderAgentList();
+    renderFarm();
     if (st.world) renderTime(); else { $('time-main').textContent = '—'; $('time-sub').textContent = ''; }
     renderLogs();
     if (st.created && st.agents?.length) renderDetail();
     else { $('detail-empty')?.classList.remove('hidden'); $('detail-content')?.classList.add('hidden'); }
     updateMapAgents();
+  }
+
+  function renderFarm() {
+    const st = S.state; if (!st) return;
+    const box = $('farm-list'); if (!box) return;
+    const agents = (st.agents || []).filter(a => !a.dead);
+    // 季节 + 天气
+    const seasonEl = $('farm-season');
+    if (seasonEl) {
+      const season = st.world?.season || '春';
+      const weather = st.world?.weatherCN || '晴';
+      seasonEl.innerHTML = `<b>${season}</b>季 · <b style="color:var(--gold-bright)">${weather}</b> · 当季适种 <span id="season-crops">…</span>`;
+    }
+    if (!S._farmCrops && S.world) {
+      fetch(API + '/farm').then(r => r.json()).then(d => {
+        if (d.ok && d.seasonCrops) {
+          S._farmCrops = d.seasonCrops;
+          const sc = document.getElementById('season-crops');
+          if (sc) sc.textContent = d.seasonCrops.join('、') || '无';
+          const st2 = S.state; if (st2) renderFarm();
+        }
+      }).catch(() => {});
+    }
+    // 市场价格
+    const marketEl = $('farm-market');
+    if (marketEl && st.market) {
+      marketEl.innerHTML = '<b style="color:var(--gold)">市价</b>' + st.market.items.slice(0,6).map(m => {
+        const d = m.priceDelta;
+        const cls = d > 0 ? 'up' : d < 0 ? 'down' : '';
+        return `<div class="mm-row"><span class="mm-name">${esc(m.name)}<span class="mm-sold">${m.soldToday}售</span></span><span class="mm-price ${cls}">${m.currentPrice}${d>0?'↑':d<0?'↓':''}</span></div>`;
+      }).join('');
+    }
+    // 统计
+    const statEl = $('farm-stats');
+    if (statEl) {
+      const activeFarms = agents.filter(a => a.farm?.harvestCount > 0 || a.farm?.totalRevenue > 0);
+      const totalHarvests = agents.reduce((s,a) => s + (a.farm?.harvestCount || 0), 0);
+      const totalRevenue = agents.reduce((s,a) => s + (a.farm?.totalRevenue || 0), 0);
+      const readyCount = agents.filter(a => a.farm?.ready).length;
+      statEl.innerHTML = `<span class="fs-item"><span class="fs-v">${totalHarvests}</span>总收获</span><span class="fs-item"><span class="fs-v">${totalRevenue}</span>总收益</span><span class="fs-item"><span class="fs-v" style="color:var(--jade)">${readyCount}</span>待收田</span>`;
+    }
+    if (!agents.length) { box.innerHTML = `<div class="farm-empty">尚无在世修士</div>`; return; }
+    const active = agents.filter(a => a.farm && (a.farm.stage !== 'cleared' || a.farm.harvestCount > 0 || a.farm.events?.some(e=>!e.handled)));
+    if (!active.length) { box.innerHTML = `<div class="farm-empty">灵田待开垦</div>`; return; }
+    box.innerHTML = active.map(a => {
+      const f = a.farm;
+      const pct = Math.floor((f.progress || 0) * 100);
+      const pest = f.unhandledCount > 0 && !f.ready;
+      const tierCls = f.tier === 2 ? 'tier2' : f.tier === 1 ? 'tier1' : 'tier0';
+      const cropText = f.crop
+        ? `${f.crop}${f.stage === 'growing' ? (f.daysRemaining != null ? ` · 剩${f.daysRemaining}日` : ' · 非当季') : ''}`
+        : (f.harvestCount > 0 ? '空闲田' : f.stageCN || f.stage);
+      const badges = [];
+      if (f.ready) badges.push('<span class="farm-badge ready">可收获</span>');
+      if (f.tierCN) badges.push(`<span class="farm-badge ${tierCls}">${f.tierCN}</span>`);
+      if (f.level > 1) badges.push(`<span class="farm-lvl">${f.level}级</span>`);
+      if (f.seasonWarning && f.crop) badges.push(`<span class="farm-badge season">${f.inSeason ? '适种' : '跨季'}</span>`);
+      if (f.unhandledCount > 0 && !f.ready) badges.push(`<span class="farm-badge pest">⚠ ${f.unhandledCount}</span>`);
+      if (f.rainBoost && !f.ready) badges.push('<span class="farm-badge">灵雨</span>');
+      if (f.beastActive && !f.ready) badges.push('<span class="farm-badge pest">灵兽</span>');
+      return `<div class="farm-card${f.ready ? ' ready' : ''}${pest ? ' pest' : ''}">
+        <span class="farm-crop-name" title="${esc(f.cropDesc || '')}">${esc(cropText)}</span>
+        <span class="farm-bar"><i style="width:${f.ready ? 100 : pct}%"></i></span>
+        <span class="farm-pct">${f.ready ? '—' : pct + '%'}</span>
+        ${badges.join('')}
+      </div>`;
+    }).join('');
+  }
+
+  async function renderCodex() {
+    const el = $('farm-codex');
+    if (!el) return;
+    try {
+      const d = await api('GET', '/farm/codex');
+      if (!d.ok) return;
+      el.innerHTML = '<b style="color:var(--gold)">灵植图鉴</b>' + d.items.map(c => {
+        return `<div class="codex-item ${c.unlocked ? 'unlocked' : 'locked'}">
+          <span class="ci-tile">${c.unlocked ? esc(c.name[0]) : '?'}</span>
+          <span class="ci-name">${c.unlocked ? esc(c.name) : '未发现'}</span>
+          <span class="ci-meta">${c.tierCN}·${c.season}·${c.periodDays}日</span>
+        </div>`;
+      }).join('') + '<b style="color:var(--gold);margin-top:6px;display:block">成就</b><div class="achievement-grid">' + d.achievements.map(a => {
+        return `<div class="ach-item got">🏆 ${esc(a.name)}</div>`;
+      }).join('') + '</div>';
+    } catch {}
   }
 
   function renderAgentList() {
@@ -943,6 +1093,11 @@ window.InkMap = InkMap;
     const onlineCount = (S.state.agents || []).filter(a => a.online && !a.dead).length;
     const totalCount = (S.state.agents || []).filter(a => !a.dead).length;
     $('time-sub').textContent = `${onlineCount} ${t('agents_online')} / ${totalCount} ${t('agents_alive')}` + (w.speed === 0 ? ` · ${t('time_static')}` : '');
+    // 天气
+    const weatherIcons = { sunny:'☀️', cloudy:'⛅', rain:'🌧️', drought:'🏜️', wind:'💨' };
+    const wIcon = $('weather-icon'), wText = $('weather-text');
+    if (wIcon) wIcon.textContent = weatherIcons[w.weather] || '☀️';
+    if (wText) wText.textContent = w.weatherCN || '晴';
   }
 
   function renderLogs() { const pane = $('pane-logs'); pane.innerHTML = ''; (S.state.recentLogs || []).forEach((l) => appendLog(l, true)); }

@@ -308,8 +308,15 @@
     "炼虚丹": { "type": "breakthrough", "desc": "炼虚期突破所需丹药", "price": 0, "sell": 1000 },
     "合体丹": { "type": "breakthrough", "desc": "合体期突破所需丹药", "price": 0, "sell": 1800 },
     "大乘丹": { "type": "breakthrough", "desc": "大乘期突破所需丹药", "price": 0, "sell": 3000 },
-    "灵草": { "type": "material", "desc": "常见灵药，可售换灵石", "price": 0, "sell": 5 },
-    "血参": { "type": "material", "desc": "百年血参，药力惊人", "price": 0, "sell": 30 },
+    "灵草": { "type": "material", "desc": "常见灵药，可售换灵石", "price": 0, "sell": 4 },
+    "血参": { "type": "material", "desc": "百年血参，药力惊人", "price": 0, "sell": 20 },
+    "桑麻": { "type": "material", "desc": "坚韧桑麻，灵田凡品灵植", "price": 0, "sell": 2 },
+    "青禾": { "type": "material", "desc": "夏熟青禾，灵田凡品灵植", "price": 0, "sell": 5 },
+    "灵稻": { "type": "material", "desc": "灵气所育之稻，灵田灵品灵植", "price": 0, "sell": 16 },
+    "九叶兰": { "type": "material", "desc": "九叶灵兰，灵田灵品灵植", "price": 0, "sell": 30 },
+    "朱果": { "type": "material", "desc": "火灵朱果，灵田仙品灵植", "price": 0, "sell": 50 },
+    "仙桃": { "type": "material", "desc": "西王母桃树之果，灵田仙品灵植", "price": 0, "sell": 90 },
+    "瑶池莲": { "type": "material", "desc": "瑶池中金莲，灵田仙品之冠", "price": 0, "sell": 150 },
     "玄铁": { "type": "material", "desc": "炼器材料，散修集市有价无市", "price": 0, "sell": 8 },
     "铁精": { "type": "material", "desc": "万年玄铁之精，可遇不可求", "price": 0, "sell": 25 },
     "鲜鱼": { "type": "material", "desc": "灵水鲜鱼，凡人也爱吃", "price": 0, "sell": 3 },
@@ -318,9 +325,12 @@
     "妖丹": { "type": "material", "desc": "妖兽内丹，蕴含妖力", "price": 0, "sell": 20 },
     "火灵石": { "type": "material", "desc": "火山深处的火之结晶", "price": 0, "sell": 28 },
     "兽宝": { "type": "material", "desc": "深渊兽体内的至宝", "price": 0, "sell": 45 },
-    "仙缘玉简": { "type": "treasure", "desc": "仙人遗落的玉简，藏着一段道法", "price": 0, "sell": 100 }
+    "仙缘玉简": { "type": "treasure", "desc": "仙人遗落的玉简，藏着一段道法", "price": 0, "sell": 100 },
+    "除虫符": { "type": "consumable", "desc": "焚符驱害虫，立即清除虫害且不损失进度", "price": 15, "sell": 3 },
+    "守护符": { "type": "consumable", "desc": "贴符护田，3 日免疫虫害与灵兽", "price": 25, "sell": 5 },
+    "灵肥": { "type": "consumable", "desc": "灵泉孕育的肥料，使用后肥力 +25 且当季产量 +5%", "price": 10, "sell": 2 }
   },
-  "shop": ["聚气丹", "回血丹", "疗伤散", "筑基丹"],
+  "shop": ["聚气丹", "回血丹", "疗伤散", "筑基丹", "除虫符", "守护符", "灵肥"],
   "gather": {
     "collect": [
       { "item": "灵草", "weight": 70 },
