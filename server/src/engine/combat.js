@@ -1,5 +1,6 @@
 // combat.js — 回合制战斗系统（Agent 作用域：每个 Agent 独立战斗状态）
 import { randInt } from './util.js';
+import { critChance } from '../destiny.js';
 
 // 检查 agent 是否在战斗中
 export function isCombatActive(agent) {
@@ -46,6 +47,12 @@ export function combatAct(game, agent, action, skillIdx) {
   // —— 玩家回合 ——
   if (action === 'attack') {
     playerDmg = baseDamage(game, agent);
+    // 天命暴击：5%~15%（随 destiny），暴击 ×1.5
+    const crit = Math.random() < critChance(agent.destiny || 50);
+    if (crit) {
+      playerDmg = Math.floor(playerDmg * 1.5);
+      c.log.push(`暴击！`);
+    }
     c.enemy.hp -= playerDmg;
     c.log.push(`${agent.name}出手，对${c.enemy.name}造成 ${playerDmg} 点伤害。`);
   } else if (action === 'defend') {
@@ -120,6 +127,8 @@ export function combatAct(game, agent, action, skillIdx) {
     }
     c.log.push(`${c.enemy.name}轰然倒下！获得修为 +${cult}，灵石 +${stones}${rewards.items.length ? `，拾获【${rewards.items.join('、')}】` : ''}。`);
     game.addLog(`【${agent.name}】击败【${c.enemy.name}】！`, 'combat');
+    game.gainXp?.(agent, 'combat_win');
+    game.logAction?.(agent, { kind: 'combat_win', enemy: c.enemy.name, cultivation: cult, spiritStones: stones });
   } else if (agent.hp <= 0) {
     c.ended = true; c.victory = false;
     const lostStones = Math.floor(agent.spiritStones * 0.1);

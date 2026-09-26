@@ -96,8 +96,10 @@ export function dungeonAct(game, agent, action) {
         const inv = agent.inventory.find(i => i.name === ev.item);
         if (inv) inv.count += 1; else agent.inventory.push({ name: ev.item, count: 1 });
       }
+      game.gainXp?.(agent, 'dungeon_loot');
     } else if (ev.type === 'fortune') {
       agent.cultivation = Math.min(agent.cultivation + ev.cultivation, game.def.realms[agent.realmIdx].maxCultivation);
+      game.gainXp?.(agent, 'dungeon_loot');
     } else if (ev.type === 'trap') {
       agent.hp = Math.max(1, agent.hp - ev.dmg);
     }
@@ -155,6 +157,7 @@ export function afterDungeonVictory(game, agent) {
     }
     agent.dungeonsCleared += 1;
     game.addLog(`【${agent.name}】通关【${d.def.name}】！获得修为 +${r.cultivation}，灵石 +${r.spiritStones}，物品【${r.items.join('、')}】。`, 'breakthrough');
+    game.gainXp?.(agent, 'dungeon_boss');
     exitDungeon(game, agent, `${agent.name} 带着战利品离开了【${d.def.name}】。`);
     return { cleared: true, rewards: r };
   }

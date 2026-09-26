@@ -19,8 +19,8 @@ function prettyClientName(raw) {
   return raw;
 }
 
-export function mountMcp(app, { getActive, switchWorld }) {
-  // sessionId -> { transport, agentId, lastActive, clientLabel, game, runner }
+export function mountMcp(app, { getActive, switchWorld, registry }) {
+  // sessionId -> { transport, agentId, accountId, lastActive, clientLabel, game, runner }
   const transports = new Map();
 
   function cleanup(sessionId, reason = '') {
@@ -29,8 +29,9 @@ export function mountMcp(app, { getActive, switchWorld }) {
     transports.delete(sessionId);
     try { entry.transport.close(); } catch {}
     // 用存档的 game/runner 引用（连接时的世界），而非当前的活跃世界
-    if (entry.agentId && entry.game) {
-      entry.game.setAgentOffline(entry.agentId);
+    const agentId = entry.session?.agentId;
+    if (agentId && entry.game) {
+      entry.game.setAgentOffline(agentId);
       entry.game.emit('update');
     }
     entry.runner?.mcpDisconnect(sessionId, reason);
@@ -51,12 +52,12 @@ export function mountMcp(app, { getActive, switchWorld }) {
       const clientName = prettyClientName(req.body?.params?.clientInfo?.name);
       // 连接时锁定当前活跃世界的 game/runner
       const { game, runner } = getActive();
-      const agentId = randomUUID();
+      const session = { accountId: null };  // 懒建账号：首次创角时创建
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         enableJsonResponse: true,
       });
-      const server = createMcpServer({ game, runner, agentId, clientLabel: clientName });
+      const server = createMcpServer({ game, runner, clientLabel: clientName, session, accounts: registry?.accounts });
       transport.onclose = () => {
         if (transport.sessionId) cleanup(transport.sessionId);
       };
@@ -64,15 +65,10 @@ export function mountMcp(app, { getActive, switchWorld }) {
       await transport.handleRequest(req, res, req.body);
       if (transport.sessionId) {
         transports.set(transport.sessionId, {
-          transport, agentId, lastActive: Date.now(), clientLabel: clientName,
+          transport, session, lastActive: Date.now(), clientLabel: clientName,
           game, runner,  // 存档引用，cleanup 时用
         });
-        runner?.mcpConnect(transport.sessionId, clientName, agentId);
-        const existing = game.getAgent(agentId);
-        if (existing && !existing.dead) {
-          game.setAgentOnline(agentId, transport.sessionId, clientName);
-          game.emit('update');
-        }
+        runner?.mcpConnect(transport.sessionId, clientName, null);
       }
       return;
     }
@@ -107,7 +103,7 @@ export function mountMcp(app, { getActive, switchWorld }) {
     const now = Date.now();
     for (const [sid, e] of transports) {
       if (now - e.lastActive > IDLE_TIMEOUT_MS) {
-        console.log(`[mcp] 回收空闲会话 ${sid.slice(0, 8)}（agent ${e.agentId?.slice(0, 8)}）`);
+        console.log(`[mcp] 回收空闲会话 ${sid.slice(0, 8)}（agent ${e.session?.agentId?.slice(0, 8) || '未创角'}）`);
         cleanup(sid, '（久无音讯，元神自行离场）');
       }
     }
@@ -119,7 +115,7 @@ export function mountMcp(app, { getActive, switchWorld }) {
       return {
         endpoint: '/mcp', sessions: transports.size,
         details: [...transports.entries()].map(([sid, e]) => ({
-          sessionId: sid.slice(0, 8), agentId: e.agentId?.slice(0, 8),
+          sessionId: sid.slice(0, 8), agentId: e.session?.agentId?.slice(0, 8) || null,
           clientLabel: e.clientLabel, lastActive: e.lastActive,
         })),
       };

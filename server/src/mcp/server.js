@@ -61,8 +61,11 @@ function areasText(game, agentId) {
   return (st.availableAreas || []).map((x) => `${x.id}(${x.name},${AREA_TYPE_CN[x.type] || x.type}${x.unlocked ? '' : ',境界不足'})`).join('; ');
 }
 
-export function createMcpServer({ game, runner, agentId, clientLabel }) {
+export function createMcpServer({ game, runner, clientLabel, session, accounts }) {
   const def = game.def;
+  // 2.0：会话懒建账号；getAgentId() 存到 session 上（角色创建后回填）
+  const sess = session || { agentId: null };
+  const getAgentId = () => sess.agentId;
   const isWestern = def.id === 'western' || def.id === 'mythos';
 
   const server = new McpServer(
@@ -95,7 +98,7 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
 
   // 检查 agent 是否存在
   const ensureAgent = () => {
-    const agent = game.getAgent(agentId);
+    const agent = game.getAgent(getAgentId());
     if (!agent) return { error: '尚未创角，请先调用 xiuxian_create_character 创建角色。' };
     if (agent.dead) return { error: '已身殒，可用 xiuxian_reincarnate 转世重修。' };
     return null;
@@ -105,7 +108,7 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
   async function waitForIdle(maxMs = 90000) {
     const t0 = Date.now();
     while (true) {
-      const agent = game.getAgent(agentId);
+      const agent = game.getAgent(getAgentId());
       if (!agent) return { error: 'Agent 不存在' };
       if (agent.dead) return { dead: true };
       if (game.state.world.paused) return { paused: true };
@@ -121,7 +124,7 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
     let started;
     try { started = fn(); } catch (e) {
       record(label, false, e.message);
-      return { ok: false, text: `✗ ${e.message}\n\n${stateText(game, agentId)}` };
+      return { ok: false, text: `✗ ${e.message}\n\n${stateText(game, getAgentId())}` };
     }
     const wait = await waitForIdle();
     const fresh = game.state.logs.slice(logLen).map((l) => l.text);
@@ -131,7 +134,7 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
     else if (wait.timeout) text += '\n⚠ 行动尚未完成（等待超时），可再次调用工具查看进度。';
     else if (wait.dead) text += '\n☠ 修士已身殒。';
     else if (wait.error) text += `\n✗ ${wait.error}`;
-    return { ok: true, text: `${text}\n\n${stateText(game, agentId)}` };
+    return { ok: true, text: `${text}\n\n${stateText(game, getAgentId())}` };
   }
 
   const T = (text) => ({ content: [{ type: 'text', text }] });
@@ -142,7 +145,7 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
     description: '查看当前完整状态：修士属性、资源、修为、所在地点、战斗/秘境情况、可用行动、可前往地点、神识感知到的其他修士。先调我，再决定做什么。',
   }, async () => {
     record('总览', true, '');
-    return T(`${stateText(game, agentId)}\n【可行动】${actionsText(game, agentId)}\n【可前往】${areasText(game, agentId)}`);
+    return T(`${stateText(game, getAgentId())}\n【可行动】${actionsText(game, getAgentId())}\n【可前往】${areasText(game, getAgentId())}`);
   });
 
   // ---------- 2. 创角 ----------
@@ -158,15 +161,23 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
     },
   }, async ({ name, path, body, comprehension, luck }) => {
     try {
-      // 如果已有角色，不允许重复创建
-      if (game.getAgent(agentId)) {
-        return T(`✗ 你已有角色【${game.getAgent(agentId).name}】，无需重复创角。\n\n${stateText(game, agentId)}`);
+      // 已有角色：切换提示（MCP 会话单角色操作，多角色请走 REST /characters）
+      if (getAgentId() && game.getAgent(getAgentId())) {
+        return T(`✗ 当前会话已有角色【${game.getAgent(getAgentId()).name}】。多角色管理请通过 REST API（/api/characters）切换。\n\n${stateText(game, getAgentId())}`);
       }
-      game.createAgent(agentId, { name, path, body, comprehension, luck, clientLabel });
-      game.setAgentOnline(agentId, null, clientLabel);
+      // 懒建账号（2.0）
+      if (!sess.accountId) {
+        const acc = accounts.createAccount({ code: clientLabel });
+        sess.accountId = acc.id;
+      }
+      const agent = accounts.createCharacter(sess.accountId, game.def.id, {
+        name, path, body, comprehension, luck, clientLabel,
+      });
+      sess.agentId = agent.id;
+      game.setAgentOnline(agent.id, null, clientLabel);
       runner?.updateConfig({ persona: name });
       record(`创角：${name}（${PATH_CN[path]}）`, true, '');
-      return T(`${name} 踏入修行之路（${PATH_CN[path]}）。\n\n${stateText(game, agentId)}\n【可行动】${actionsText(game, agentId)}`);
+      return T(`${name} 踏入修行之路（${PATH_CN[path]}）。账号等级 ${accounts.getAccount(sess.accountId).level} 级。\n\n${stateText(game, getAgentId())}\n【可行动】${actionsText(game, getAgentId())}`);
     } catch (e) {
       record(`创角失败`, false, e.message);
       return T(`✗ ${e.message}`);
@@ -179,13 +190,14 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
     description: '身殒后转世重修：保留一半灵石，境界归零，修炼速度提升20%/世。',
   }, async () => {
     try {
+      const agentId = getAgentId();
       game.reincarnateAgent(agentId);
       game.setAgentOnline(agentId, null, clientLabel);
       record('转世重修', true, '');
-      return T(`天道有轮回，你已转世重修。\n\n${stateText(game, agentId)}`);
+      return T(`天道有轮回，你已转世重修。\n\n${stateText(game, getAgentId())}`);
     } catch (e) {
       record(`转世失败`, false, e.message);
-      return T(`✗ ${e.message}\n\n${stateText(game, agentId)}`);
+      return T(`✗ ${e.message}\n\n${stateText(game, getAgentId())}`);
     }
   });
 
@@ -200,7 +212,7 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
     const err = ensureAgent();
     if (err) return T(err.error);
     const labels = { cultivate: '修炼', rest: '休息', collect: '采集', mine: '挖矿', fish: '赶海', ask: '请教', fortune: '探缘', breakthrough: '突破境界' };
-    const res = await runAndAwait(() => game.startAction(agentId, type), labels[type] || type);
+    const res = await runAndAwait(() => game.startAction(getAgentId(), type), labels[type] || type);
     return T(res.text);
   });
 
@@ -213,8 +225,8 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
     const err = ensureAgent();
     if (err) return T(err.error);
     const def = game.areaDef(areaId);
-    if (!def) return T(`✗ 无此地点：${areaId}\n【可前往】${areasText(game, agentId)}`);
-    const res = await runAndAwait(() => game.moveTo(agentId, areaId), `前往${def.name}`);
+    if (!def) return T(`✗ 无此地点：${areaId}\n【可前往】${areasText(game, getAgentId())}`);
+    const res = await runAndAwait(() => game.moveTo(getAgentId(), areaId), `前往${def.name}`);
     return T(res.text);
   });
 
@@ -230,20 +242,20 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
     const err = ensureAgent();
     if (err) return T(err.error);
     try {
-      const res = await game.combat(agentId, action, skillIdx ?? 0);
+      const res = await game.combat(getAgentId(), action, skillIdx ?? 0);
       const r = res.result || {};
       record(`战斗·${action}${action === 'skill' ? ':' + (skillIdx ?? 0) : ''}`, true, r.message || '');
       let text = r.message || '交手一回合。';
       if (r.log?.length) text += `\n${r.log.slice(-4).join('\n')}`;
       if (r.victory) text += `\n⚔ 战斗胜利！${r.drops || ''}`;
       if (r.fled) text += '\n💨 遁走了。';
-      text += `\n\n${stateText(game, agentId)}`;
-      const agent = game.getAgent(agentId);
-      if (agent?.combat && !agent.combat.ended) text += `\n【可行动】${actionsText(game, agentId)}`;
+      text += `\n\n${stateText(game, getAgentId())}`;
+      const agent = game.getAgent(getAgentId());
+      if (agent?.combat && !agent.combat.ended) text += `\n【可行动】${actionsText(game, getAgentId())}`;
       return T(text);
     } catch (e) {
       record(`战斗·${action}`, false, e.message);
-      return T(`✗ ${e.message}\n\n${stateText(game, agentId)}\n【可行动】${actionsText(game, agentId)}`);
+      return T(`✗ ${e.message}\n\n${stateText(game, getAgentId())}\n【可行动】${actionsText(game, getAgentId())}`);
     }
   });
 
@@ -260,21 +272,21 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
     if (err) return T(err.error);
     try {
       if (action === 'enter') {
-        game.enterDungeonById(agentId, dungeonId);
+        game.enterDungeonById(getAgentId(), dungeonId);
         record(`进入秘境:${dungeonId}`, true, '');
-        return T(`踏入秘境。\n\n${stateText(game, agentId)}\n【可行动】${actionsText(game, agentId)}`);
+        return T(`踏入秘境。\n\n${stateText(game, getAgentId())}\n【可行动】${actionsText(game, getAgentId())}`);
       }
-      const res = await game.dungeon(agentId, action);
+      const res = await game.dungeon(getAgentId(), action);
       const labels = { explore: '探索', advance: '深入', exit: '退出秘境' };
       const ev = res?.event;
       let text = ev?.text || `${labels[action]}完成。`;
       if (ev?.type === 'combat' || ev?.type === 'boss') text += `\n⚔ ${ev.enemy?.name || '强敌'}现身！请用 xiuxian_combat 应战。`;
       record(`秘境·${labels[action]}`, true, ev?.text?.slice(0, 40) || '');
-      text += `\n\n${stateText(game, agentId)}\n【可行动】${actionsText(game, agentId)}`;
+      text += `\n\n${stateText(game, getAgentId())}\n【可行动】${actionsText(game, getAgentId())}`;
       return T(text);
     } catch (e) {
       record(`秘境·${action}`, false, e.message);
-      return T(`✗ ${e.message}\n\n${stateText(game, agentId)}\n【可行动】${actionsText(game, agentId)}`);
+      return T(`✗ ${e.message}\n\n${stateText(game, getAgentId())}\n【可行动】${actionsText(game, getAgentId())}`);
     }
   });
 
@@ -292,18 +304,18 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
     if (err) return T(err.error);
     try {
       if (action === 'list') {
-        const s = game.shopList(agentId);
+        const s = game.shopList(getAgentId());
         const buy = (s.items || []).map((i) => `${i.name}(${i.price}玉,${(i.desc || '').slice(0, 14)})`).join('; ');
         const sell = (s.sellable || []).map((i) => `${i.name}×${i.count}(${i.sell}玉)`).join('; ');
         record('坊市·看货', true, '');
-        return T(`【在售】${buy || '空'}\n【可售】${sell || '背包无可售之物'}\n\n${stateText(game, agentId)}`);
+        return T(`【在售】${buy || '空'}\n【可售】${sell || '背包无可售之物'}\n\n${stateText(game, getAgentId())}`);
       }
-      const res = action === 'buy' ? game.buy(agentId, itemName, count || 1) : game.sell(agentId, itemName, count || 1);
+      const res = action === 'buy' ? game.buy(getAgentId(), itemName, count || 1) : game.sell(getAgentId(), itemName, count || 1);
       record(`坊市·${action === 'buy' ? '购' : '售'}${itemName}`, true, res.message || '');
-      return T(`${res.message || '交易完成'}\n\n${stateText(game, agentId)}`);
+      return T(`${res.message || '交易完成'}\n\n${stateText(game, getAgentId())}`);
     } catch (e) {
       record(`坊市·${action}`, false, e.message);
-      return T(`✗ ${e.message}\n\n${stateText(game, agentId)}`);
+      return T(`✗ ${e.message}\n\n${stateText(game, getAgentId())}`);
     }
   });
 
@@ -316,12 +328,12 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
     const err = ensureAgent();
     if (err) return T(err.error);
     try {
-      const res = game.useItem(agentId, itemName);
+      const res = game.useItem(getAgentId(), itemName);
       record(`服用${itemName}`, true, res.message || '');
-      return T(`${res.message || `服下${itemName}`}。\n\n${stateText(game, agentId)}`);
+      return T(`${res.message || `服下${itemName}`}。\n\n${stateText(game, getAgentId())}`);
     } catch (e) {
       record(`服用${itemName}`, false, e.message);
-      return T(`✗ ${e.message}\n\n${stateText(game, agentId)}`);
+      return T(`✗ ${e.message}\n\n${stateText(game, getAgentId())}`);
     }
   });
 
@@ -332,19 +344,19 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
   }, async () => {
     const err = ensureAgent();
     if (err) return T(err.error);
-    const nearby = game.senseNearby(agentId);
+    const nearby = game.senseNearby(getAgentId());
     record('神识探查', true, `${nearby.length}人`);
     if (!nearby.length) {
-      const agent = game.getAgent(agentId);
+      const agent = game.getAgent(getAgentId());
       const range = game.senseRange(agent);
-      return T(`【神识探查】神识铺展 ${range >= 9999 ? '全域' : range + ' 丈'}，未感知到其他修士。\n\n${stateText(game, agentId)}`);
+      return T(`【神识探查】神识铺展 ${range >= 9999 ? '全域' : range + ' 丈'}，未感知到其他修士。\n\n${stateText(game, getAgentId())}`);
     }
     const lines = nearby.map(a => {
       const loc = a.sameArea ? `同处【${a.areaName}】` : `距 ${a.distance} 丈（在${a.areaName}）`;
       const online = a.online ? ' ·元神在线' : ' ·元神离线';
       return `• 【${a.name}】${a.realmName} · ${a.pathName} · ${loc}${online} · ID:${a.id.slice(0, 8)}`;
     });
-    return T(`【神识探查】感知到 ${nearby.length} 位修士：\n${lines.join('\n')}\n\n可用 xiuxian_talk 向其传音（需提供目标ID）。\n\n${stateText(game, agentId)}`);
+    return T(`【神识探查】感知到 ${nearby.length} 位修士：\n${lines.join('\n')}\n\n可用 xiuxian_talk 向其传音（需提供目标ID）。\n\n${stateText(game, getAgentId())}`);
   });
 
   // ---------- 11. 传音 ----------
@@ -363,12 +375,12 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
       const allAgents = game.allAgents();
       const target = allAgents.find(a => a.id === targetId) || allAgents.find(a => a.id.startsWith(targetId));
       if (!target) return T(`✗ 未找到 ID 为 ${targetId} 的修士。\n可用 xiuxian_sense 查看可传音的修士。`);
-      const msg = game.converse(agentId, target.id, text);
+      const msg = game.converse(getAgentId(), target.id, text);
       record(`传音→${target.name}`, true, text.slice(0, 40));
-      return T(`【传音】已向【${target.name}】（${msg.fromRealm}）传音：「${text}」\n\n${stateText(game, agentId)}`);
+      return T(`【传音】已向【${target.name}】（${msg.fromRealm}）传音：「${text}」\n\n${stateText(game, getAgentId())}`);
     } catch (e) {
       record(`传音失败`, false, e.message);
-      return T(`✗ 传音失败：${e.message}\n\n${stateText(game, agentId)}`);
+      return T(`✗ 传音失败：${e.message}\n\n${stateText(game, getAgentId())}`);
     }
   });
 
@@ -379,17 +391,17 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
   }, async () => {
     const err = ensureAgent();
     if (err) return T(err.error);
-    const convs = game.getConversations(agentId);
-    game.markConversationsRead(agentId);
+    const convs = game.getConversations(getAgentId());
+    game.markConversationsRead(getAgentId());
     record('查看传音', true, `${convs.length}条`);
     if (!convs.length) {
-      return T(`【传音】暂无传音。\n\n${stateText(game, agentId)}`);
+      return T(`【传音】暂无传音。\n\n${stateText(game, getAgentId())}`);
     }
     const lines = convs.map(m => {
       const time = new Date(m.t).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
       return `• [${time}] 【${m.fromName}】（${m.fromRealm}）：${m.text}`;
     });
-    return T(`【传音】共 ${convs.length} 条：\n${lines.join('\n')}\n\n${stateText(game, agentId)}`);
+    return T(`【传音】共 ${convs.length} 条：\n${lines.join('\n')}\n\n${stateText(game, getAgentId())}`);
   });
 
   // ---------- 13. 等待 ----------
@@ -407,7 +419,7 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
     else if (res.timeout) text = '仍在进行中……';
     else if (res.dead) text = '修士已身殒。';
     record('静候', true, '');
-    return T(`${text}\n\n${stateText(game, agentId)}`);
+    return T(`${text}\n\n${stateText(game, getAgentId())}`);
   });
 
   // ---------- 14. 纪事 ----------
@@ -435,7 +447,7 @@ export function createMcpServer({ game, runner, agentId, clientLabel }) {
     game.emit('update');
     game.markDirty();
     record(`时空法诀·${sp}倍`, true, '');
-    return T(`时间流速已调为 ${sp} 倍。\n\n${stateText(game, agentId)}`);
+    return T(`时间流速已调为 ${sp} 倍。\n\n${stateText(game, getAgentId())}`);
   });
 
   return server;
