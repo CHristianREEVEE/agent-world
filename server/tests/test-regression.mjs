@@ -61,7 +61,7 @@ try {
   console.log('\n═══ 旧功能回归测试 ═══\n');
 
   console.log('【世界/状态】');
-  let d = await api('GET', '/state'); ck('GET /state', d.ok === true && d.world);
+  let d = await api('GET', '/state'); ck('GET /state', d.ok === true && (d.world || d.worlds));  // 2.0 多世界语义：顶层 world → worlds+activeWorldId
   d = await api('GET', '/world'); ck('GET /world 含dungeons/items', d.ok && Array.isArray(d.world.dungeons) && d.world.items);
   d = await api('GET', '/agents'); ck('GET /agents', d.ok);
   d = await api('GET', '/logs'); ck('GET /logs', d.ok);
