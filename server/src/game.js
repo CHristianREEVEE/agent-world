@@ -98,6 +98,11 @@ export class Game extends EventEmitter {
       for (const a of Object.values(this.state.agents)) {
         if (!a.conversations) a.conversations = [];
         if (a.online) { a.online = false; a.mcpSessionId = null; } // 重启后全部离线
+        // 旧档境界清洗：realmIdx 越界（旧世界 32 层表/乱档）夹取到当前境界表合法区间
+        const realmCount = this.def.realms.length;
+        if (!Number.isInteger(a.realmIdx) || a.realmIdx < 0 || a.realmIdx >= realmCount) {
+          a.realmIdx = Math.min(Math.max(Number(a.realmIdx) || 0, 0), realmCount - 1);
+        }
       }
       this._colorIdx = Object.keys(this.state.agents).length % AGENT_COLORS.length;
     }

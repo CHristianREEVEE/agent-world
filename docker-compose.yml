@@ -6,7 +6,11 @@ services:
       - "3000:3000"
     volumes:
       - ./data:/app/data
+      - ./logs:/app/logs
     environment:
       - PORT=3000
       - DATA_DIR=/app/data
+      - WORLDS_ROOT=/app/worlds
+      - WEB_DIR=/app/web
+      - ADMIN_KEY=333xyz
     restart: unless-stopped
